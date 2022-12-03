@@ -6,6 +6,7 @@ import argparse
 sys.path.append("..")
 sys.path.append(".")
 from guided_diffusion import dist_util, logger
+from guided_diffusion.dataset import CamObjDataset, get_loader, test_dataset
 from guided_diffusion.resample import create_named_schedule_sampler
 from guided_diffusion.bratsloader import BRATSDataset
 from guided_diffusion.script_util import (
@@ -34,11 +35,15 @@ def main():
 
     logger.log("creating data loader...")
     ds = BRATSDataset(args.data_dir, test_flag=False)
-    datal= th.utils.data.DataLoader(
-        ds,
-        batch_size=args.batch_size,
-        shuffle=True)
-    data = iter(datal)
+    ds = CamObjDataset(args.data_dir, test_flag=False)
+    
+    train_loader = get_loader(image_root=args.train_root + 'images/',
+                              gt_root=args.train_root + 'masks/',
+                              edge_root=args.train_root + 'edges/',
+                              batchsize=args.batchsize,
+                              trainsize=args.trainsize,
+                              num_workers=12)
+    data = iter(train_loader)
 
 
     logger.log("training...")
@@ -47,7 +52,7 @@ def main():
         diffusion=diffusion,
         classifier=None,
         data=data,
-        dataloader=datal,
+        dataloader=train_loader,
         batch_size=args.batch_size,
         microbatch=args.microbatch,
         lr=args.lr,
@@ -65,12 +70,13 @@ def main():
 
 def create_argparser():
     defaults = dict(
-        data_dir="./data/training",
+        train_root="./dataset/TrainDataset/",
+        train_suze=352,
         schedule_sampler="uniform",
         lr=1e-4,
         weight_decay=0.0,
         lr_anneal_steps=0,
-        batch_size=1,
+        batch_size=4,
         microbatch=-1,  # -1 disables microbatches
         ema_rate="0.9999",  # comma-separated list of EMA values
         log_interval=100,

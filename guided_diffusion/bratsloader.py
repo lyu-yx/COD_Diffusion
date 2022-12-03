@@ -21,11 +21,17 @@ class BRATSDataset(torch.utils.data.Dataset):
         self.directory = os.path.expanduser(directory)
 
         self.test_flag=test_flag
-        if test_flag:
-            self.seqtypes = ['t1', 't1ce', 't2', 'flair']
-        else:
-            self.seqtypes = ['t1', 't1ce', 't2', 'flair', 'seg']
+        
+        # if test_flag:
+        #     self.seqtypes = ['t1', 't1ce', 't2', 'flair']
+        # else:
+        #     self.seqtypes = ['t1', 't1ce', 't2', 'flair', 'seg']
 
+        if test_flag:
+            self.seqtypes = ['img', 'edge']
+        else:
+            self.seqtypes = ['img', 'edge', 'gt']
+            
         self.seqtypes_set = set(self.seqtypes)
         self.database = []
         for root, dirs, files in os.walk(self.directory):
