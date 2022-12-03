@@ -17,8 +17,8 @@ from guided_diffusion.script_util import (
 )
 import torch as th
 from guided_diffusion.train_util import TrainLoop
-from visdom import Visdom
-viz = Visdom(port=8850)
+#from visdom import Visdom
+#viz = Visdom(port=8850)
 
 def main():
     args = create_argparser().parse_args()
@@ -34,16 +34,16 @@ def main():
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion,  maxt=1000)
 
     logger.log("creating data loader...")
-    ds = BRATSDataset(args.data_dir, test_flag=False)
-    ds = CamObjDataset(args.data_dir, test_flag=False)
+    #ds = BRATSDataset(args.data_dir, test_flag=False)
+    #ds = CamObjDataset(args.data_dir, test_flag=False)
     
-    train_loader = get_loader(image_root=args.train_root + 'images/',
-                              gt_root=args.train_root + 'masks/',
-                              edge_root=args.train_root + 'edges/',
-                              batchsize=args.batchsize,
-                              trainsize=args.trainsize,
-                              num_workers=12)
-    data = iter(train_loader)
+    train_loader = get_loader(image_root=args.train_root + 'Imgs/',
+                              gt_root=args.train_root + 'GT/',
+                              edge_root=args.train_root + 'Edge/',
+                              batchsize=args.batch_size,
+                              trainsize=args.train_size,
+                              num_workers=1)
+    #data = iter(train_loader)
 
 
     logger.log("training...")
@@ -51,7 +51,7 @@ def main():
         model=model,
         diffusion=diffusion,
         classifier=None,
-        data=data,
+        # data=data,
         dataloader=train_loader,
         batch_size=args.batch_size,
         microbatch=args.microbatch,
@@ -71,7 +71,7 @@ def main():
 def create_argparser():
     defaults = dict(
         train_root="./dataset/TrainDataset/",
-        train_suze=352,
+        train_size=352,
         schedule_sampler="uniform",
         lr=1e-4,
         weight_decay=0.0,

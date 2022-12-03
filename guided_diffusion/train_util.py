@@ -12,11 +12,12 @@ from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer
 from .nn import update_ema
 from .resample import LossAwareSampler, UniformSampler
-from visdom import Visdom
-viz = Visdom(port=8850)
-loss_window = viz.line( Y=th.zeros((1)).cpu(), X=th.zeros((1)).cpu(), opts=dict(xlabel='epoch', ylabel='Loss', title='loss'))
-grad_window = viz.line(Y=th.zeros((1)).cpu(), X=th.zeros((1)).cpu(),
-                           opts=dict(xlabel='step', ylabel='amplitude', title='gradient'))
+# from visdom import Visdom
+
+# viz = Visdom(port=8850)
+# loss_window = viz.line( Y=th.zeros((1)).cpu(), X=th.zeros((1)).cpu(), opts=dict(xlabel='epoch', ylabel='Loss', title='loss'))
+# grad_window = viz.line(Y=th.zeros((1)).cpu(), X=th.zeros((1)).cpu(),
+#                            opts=dict(xlabel='step', ylabel='amplitude', title='gradient'))
 
 
 # For ImageNet experiments, this was a good default value.
@@ -37,7 +38,7 @@ class TrainLoop:
         model,
         classifier,
         diffusion,
-        data,
+        # data,
         dataloader,
         batch_size,
         microbatch,
@@ -56,7 +57,7 @@ class TrainLoop:
         self.dataloader=dataloader
         self.classifier = classifier
         self.diffusion = diffusion
-        self.data = data
+        # self.data = data
         self.batch_size = batch_size
         self.microbatch = microbatch if microbatch > 0 else batch_size
         self.lr = lr
@@ -176,12 +177,14 @@ class TrainLoop:
 
 
             try:
-                    batch, cond = next(data_iter)
+                    img, gt, edge = next(data_iter)
+                    cond = gt
+                    batch = th.cat((img, edge), dim=1)
             except StopIteration:
                     # StopIteration is thrown if dataset ends
                     # reinitialize data loader
                     data_iter = iter(self.dataloader)
-                    batch, cond = next(data_iter)
+                    img, gt, edge = next(data_iter)
 
             self.run_step(batch, cond)
 

@@ -3,6 +3,7 @@ import random
 import numpy as np
 from PIL import Image, ImageEnhance
 
+from tqdm import tqdm
 import torch.utils.data as data
 import torchvision.transforms as transforms
 
@@ -137,7 +138,7 @@ class CamObjDataset(data.Dataset):
         assert len(self.images) == len(self.gts) and len(self.gts) == len(self.images)
         images = []
         gts = []
-        for img_path, gt_path in zip(self.images, self.gts):
+        for img_path, gt_path in tqdm(zip(self.images, self.gts)):
             img = Image.open(img_path)
             gt = Image.open(gt_path)
             if img.size == gt.size:
