@@ -7,7 +7,7 @@ import argparse
 import os
 import nibabel as nib
 from visdom import Visdom
-viz = Visdom(port=8850)
+#viz = Visdom(port=8850)
 import sys
 import random
 sys.path.append(".")
@@ -30,11 +30,11 @@ th.cuda.manual_seed_all(seed)
 np.random.seed(seed)
 random.seed(seed)
 
-def visualize(img):
-    _min = img.min()
-    _max = img.max()
-    normalized_img = (img - _min)/ (_max - _min)
-    return normalized_img
+# def visualize(img):
+#     _min = img.min()
+#     _max = img.max()
+#     normalized_img = (img - _min)/ (_max - _min)
+#     return normalized_img
 
 def dice_score(pred, targs):
     pred = (pred>0).float()
@@ -69,13 +69,13 @@ def main():
         b, path = next(data)  #should return an image from the dataloader "data"
         c = th.randn_like(b[:, :1, ...])
         img = th.cat((b, c), dim=1)     #add a noise channel$
-        slice_ID=path[0].split("/", -1)[3]
+        # slice_ID=path[0].split("/", -1)[3]
 
-        viz.image(visualize(img[0,0,...]), opts=dict(caption="img input0"))
-        viz.image(visualize(img[0, 1, ...]), opts=dict(caption="img input1"))
-        viz.image(visualize(img[0, 2, ...]), opts=dict(caption="img input2"))
-        viz.image(visualize(img[0, 3, ...]), opts=dict(caption="img input3"))
-        viz.image(visualize(img[0, 4, ...]), opts=dict(caption="img input4"))
+        # viz.image(visualize(img[0,0,...]), opts=dict(caption="img input0"))
+        # viz.image(visualize(img[0, 1, ...]), opts=dict(caption="img input1"))
+        # viz.image(visualize(img[0, 2, ...]), opts=dict(caption="img input2"))
+        # viz.image(visualize(img[0, 3, ...]), opts=dict(caption="img input3"))
+        # viz.image(visualize(img[0, 4, ...]), opts=dict(caption="img input4"))
 
         logger.log("sampling...")
 
@@ -101,8 +101,8 @@ def main():
             print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
 
             s = th.tensor(sample)
-            viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
-            th.save(s, './results/'+str(slice_ID)+'_output'+str(i)) #save the generated mask
+            # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
+            th.save(s, './results/'+str(path[0].split("/", -1))) #save the generated mask
 
 def create_argparser():
     defaults = dict(

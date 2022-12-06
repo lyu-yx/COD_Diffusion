@@ -13,7 +13,7 @@ import math
 # viz = Visdom(port=8850)
 import numpy as np
 import torch as th
-from .train_util import visualize
+#from .train_util import visualize
 from .nn import mean_flat
 from .losses import normal_kl, discretized_gaussian_log_likelihood
 from scipy import ndimage
@@ -926,14 +926,14 @@ class GaussianDiffusion:
         res = torch.where(mask > 0, 1, 0)   #merge all tumor classes into one to get a binary segmentation mask
 
         res_t = self.q_sample(res, t, noise=noise)     #add noise to the segmentation channel
-        x_t=x_start.float()
+        x_t = x_start.float()
         x_t[:, -1:, ...]=res_t.float()
         terms = {}
 
 
         if self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
 
-            model_output = model(x_t, self._scale_timesteps(t), **model_kwargs)
+            model_output = model(x_t, self._scale_timesteps(t), **model_kwargs) # attention Unet
             if self.model_var_type in [
                 ModelVarType.LEARNED,
                 ModelVarType.LEARNED_RANGE,

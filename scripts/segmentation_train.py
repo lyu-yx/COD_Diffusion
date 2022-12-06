@@ -39,10 +39,13 @@ def main():
     
     train_loader = get_loader(image_root=args.train_root + 'Imgs/',
                               gt_root=args.train_root + 'GT/',
-                              edge_root=args.train_root + 'Edge/',
+                            # edge_root=args.train_root + 'Edge/',
                               batchsize=args.batch_size,
                               trainsize=args.train_size,
-                              num_workers=1)
+                              num_workers=4)
+    val_loader = test_dataset(image_root=args.val_root + 'Imgs/',
+                              gt_root=args.val_root + 'GT/',
+                              testsize=args.test_size)
     #data = iter(train_loader)
 
 
@@ -52,7 +55,8 @@ def main():
         diffusion=diffusion,
         classifier=None,
         # data=data,
-        dataloader=train_loader,
+        data_loader=train_loader,
+        val_loader=val_loader,
         batch_size=args.batch_size,
         microbatch=args.microbatch,
         lr=args.lr,
@@ -70,13 +74,15 @@ def main():
 
 def create_argparser():
     defaults = dict(
-        train_root="./dataset/TrainDataset/",
+        train_root="../BUDG/dataset/TrainDataset/",
+        val_root="../BUDG/dataset/TestDataset/CAMO/",
         train_size=352,
+        test_size=352,
         schedule_sampler="uniform",
         lr=1e-4,
         weight_decay=0.0,
         lr_anneal_steps=0,
-        batch_size=4,
+        batch_size=1,
         microbatch=-1,  # -1 disables microbatches
         ema_rate="0.9999",  # comma-separated list of EMA values
         log_interval=100,

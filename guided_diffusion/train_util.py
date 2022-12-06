@@ -2,16 +2,28 @@ import copy
 import functools
 import os
 
+import argparse
 import blobfile as bf
+import logging
+import numpy as np
 import torch as th
 import torch.distributed as dist
+import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 
+from . import metrics
 from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer
 from .nn import update_ema
 from .resample import LossAwareSampler, UniformSampler
+from guided_diffusion.script_util import (
+    NUM_CLASSES,
+    model_and_diffusion_defaults,
+    create_model_and_diffusion,
+    add_dict_to_argparser,
+    args_to_dict,
+)
 # from visdom import Visdom
 
 # viz = Visdom(port=8850)
@@ -39,7 +51,8 @@ class TrainLoop:
         classifier,
         diffusion,
         # data,
-        dataloader,
+        data_loader,
+        val_loader,
         batch_size,
         microbatch,
         lr,
@@ -54,7 +67,7 @@ class TrainLoop:
         lr_anneal_steps=0,
     ):
         self.model = model
-        self.dataloader=dataloader
+        self.data_loader = data_loader
         self.classifier = classifier
         self.diffusion = diffusion
         # self.data = data
@@ -169,7 +182,8 @@ class TrainLoop:
 
     def run_loop(self):
         i = 0
-        data_iter = iter(self.dataloader)
+        data_iter = iter(self.data_loader)
+
         while (
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
@@ -177,14 +191,14 @@ class TrainLoop:
 
 
             try:
-                    img, gt, edge = next(data_iter)
-                    cond = gt
-                    batch = th.cat((img, edge), dim=1)
+                # for i, (img, gt, edge) in enumerate(self.data_loader, start=1):
+                    batch, cond = next(data_iter)
+                    
             except StopIteration:
                     # StopIteration is thrown if dataset ends
                     # reinitialize data loader
-                    data_iter = iter(self.dataloader)
-                    img, gt, edge = next(data_iter)
+                    data_iter = iter(self.data_loader)
+                    batch, cond = next(data_iter)
 
             self.run_step(batch, cond)
 
@@ -205,7 +219,6 @@ class TrainLoop:
 
     def run_step(self, batch, cond):
         batch=th.cat((batch, cond), dim=1)
-
         cond={}
         sample = self.forward_backward(batch, cond)
         took_step = self.mp_trainer.optimize(self.opt)
@@ -257,7 +270,7 @@ class TrainLoop:
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
             )
             self.mp_trainer.backward(loss)
-            return  sample
+            return sample
 
     def _update_ema(self):
         for rate, params in zip(self.ema_rate, self.ema_params):
@@ -345,3 +358,103 @@ def log_loss_dict(diffusion, ts, losses):
         for sub_t, sub_loss in zip(ts.cpu().numpy(), values.detach().cpu().numpy()):
             quartile = int(4 * sub_t / diffusion.num_timesteps)
             logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
+    
+def create_argparser():
+    defaults = dict(
+        data_dir="./data/testing",
+        clip_denoised=True,
+        num_samples=1,
+        batch_size=1,
+        use_ddim=False,
+        model_path="",
+        num_ensemble=5      #number of samples in the ensemble
+    )
+    defaults.update(model_and_diffusion_defaults())
+    parser = argparse.ArgumentParser()
+    add_dict_to_argparser(parser, defaults)
+    return parser
+
+def val(test_loader, model, epoch, save_path, writer):
+    """
+    validation function
+    """
+    global best_metric_dict, best_score, best_epoch
+    FM = metrics.Fmeasure()
+    SM = metrics.Smeasure()
+    EM = metrics.Emeasure()
+    metrics_dict = dict()
+    args = create_argparser().parse_args()
+    model.eval()
+    with th.no_grad():
+        model, diffusion = create_model_and_diffusion(
+        **args_to_dict(args, model_and_diffusion_defaults().keys())
+    )
+        for i in range(test_loader.size):
+            image, gt, name, _ = test_loader.load_data()
+            gt = np.asarray(gt, np.float32)
+            image = image.cuda()
+
+            #res = model(image)
+            start = th.cuda.Event(enable_timing=True)
+            end = th.cuda.Event(enable_timing=True)
+
+            for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
+                model_kwargs = {}
+                start.record()
+                sample_fn = (
+                    diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
+                )
+                sample, x_noisy, org = sample_fn(
+                    model,
+                    (args.batch_size, 3, args.image_size, args.image_size), image,
+                    clip_denoised=args.clip_denoised,
+                    model_kwargs=model_kwargs,
+                )
+
+            end.record()
+            th.cuda.synchronize()
+            print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
+
+            sample_result = th.tensor(sample)
+            # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
+            th.save(sample_result, './results/'+str(name)) #save the generated mask
+
+            res = F.upsample(sample_result, size=gt.shape, mode='bilinear', align_corners=False)
+            res = res.sigmoid().data.cpu().numpy().squeeze()
+            res = (res - res.min()) / (res.max() - res.min() + 1e-8)
+            
+            # TODO
+            '''
+            Threshold of predict mask
+            '''
+            FM.step(pred=res, gt=gt)
+            SM.step(pred=res, gt=gt)
+            EM.step(pred=res, gt=gt)
+
+        metrics_dict.update(Sm=SM.get_results()['sm'])
+        metrics_dict.update(mxFm=FM.get_results()['fm']['curve'].max().round(3))
+        metrics_dict.update(mxEm=EM.get_results()['em']['curve'].max().round(3))
+
+        cur_score = metrics_dict['Sm'] + metrics_dict['mxFm'] + metrics_dict['mxEm']
+
+        if epoch == 1:
+            best_score = cur_score
+            print('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
+                epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm']))
+            logging.info('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
+                epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm']))
+        else:
+            if cur_score > best_score:
+                best_metric_dict = metrics_dict
+                best_score = cur_score
+                best_epoch = epoch
+                th.save(model.state_dict(), save_path + 'Net_epoch_best.pth')
+                print('>>> save state_dict successfully! best epoch is {}.'.format(epoch))
+            else:
+                print('>>> not find the best epoch -> continue training ...')
+            print('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})\n[Best Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
+                epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm'],
+                best_epoch, best_metric_dict['mxFm'], best_metric_dict['Sm'], best_metric_dict['mxEm']))
+            logging.info('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})\n[Best Epoch:{}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
+                epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm'],
+                best_epoch, best_metric_dict['mxFm'], best_metric_dict['Sm'], best_metric_dict['mxEm']))

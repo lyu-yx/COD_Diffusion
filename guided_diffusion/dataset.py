@@ -3,21 +3,20 @@ import random
 import numpy as np
 from PIL import Image, ImageEnhance
 
-from tqdm import tqdm
+from tqdm.contrib import tzip
 import torch.utils.data as data
 import torchvision.transforms as transforms
 
 
-def cv_random_flip(img, label, grad):
+def cv_random_flip(img, label):
     flip_flag = random.randint(0, 1)
     if flip_flag == 1:
         img = img.transpose(Image.FLIP_LEFT_RIGHT)
         label = label.transpose(Image.FLIP_LEFT_RIGHT)
-        grad = grad.transpose(Image.FLIP_LEFT_RIGHT)
-    return img, label, grad
+        # grad = grad.transpose(Image.FLIP_LEFT_RIGHT)
+    return img, label
 
-
-def randomCrop(image, label, grad):
+def randomCrop(image, label):
     border = 30
     image_width = image.size[0]
     image_height = image.size[1]
@@ -26,17 +25,17 @@ def randomCrop(image, label, grad):
     random_region = (
         (image_width - crop_win_width) >> 1, (image_height - crop_win_height) >> 1, (image_width + crop_win_width) >> 1,
         (image_height + crop_win_height) >> 1)
-    return image.crop(random_region), label.crop(random_region), grad.crop(random_region)
+    return image.crop(random_region), label.crop(random_region)
 
 
-def randomRotation(image, label, grad):
+def randomRotation(image, label):
     mode = Image.BICUBIC
     if random.random() > 0.8:
         random_angle = np.random.randint(-15, 15)
         image = image.rotate(random_angle, mode)
         label = label.rotate(random_angle, mode)
-        grad = grad.rotate(random_angle, mode)
-    return image, label, grad
+        # grad = grad.rotate(random_angle, mode)
+    return image, label
 
 
 def colorEnhance(image):
@@ -81,14 +80,15 @@ def randomPeper(img):
 
 
 # dataset for training
+
 class CamObjDataset(data.Dataset):
-    def __init__(self, image_root, gt_root, edge_root, trainsize):
+    def __init__(self, image_root, gt_root, trainsize):
         self.trainsize = trainsize
         # get filenames
         self.images = [image_root + f for f in os.listdir(image_root) if f.endswith('.jpg')
                        or f.endswith('.png')]
-        self.edges = [edge_root + f for f in os.listdir(edge_root) if f.endswith('.jpg')
-                      or f.endswith('.png')]
+        # self.edges = [edge_root + f for f in os.listdir(edge_root) if f.endswith('.jpg')
+        #               or f.endswith('.png')]
         self.gts = [gt_root + f for f in os.listdir(gt_root) if f.endswith('.jpg')
                     or f.endswith('.png')]
         # self.grads = [grad_root + f for f in os.listdir(grad_root) if f.endswith('.jpg')
@@ -96,7 +96,7 @@ class CamObjDataset(data.Dataset):
         
         # sorted files
         self.images = sorted(self.images)
-        self.edges = sorted(self.edges)
+        # self.edges = sorted(self.edges)
         self.gts = sorted(self.gts)
 
         # filter mathcing degrees of files
@@ -109,6 +109,9 @@ class CamObjDataset(data.Dataset):
         self.gt_transform = transforms.Compose([
             transforms.Resize((self.trainsize, self.trainsize)),
             transforms.ToTensor()])
+        # self.edge_transform = transforms.Compose([
+        #     transforms.Resize((self.trainsize, self.trainsize)),
+        #     transforms.ToTensor()])
         # get size of dataset
 
         self.size = len(self.images)
@@ -118,27 +121,32 @@ class CamObjDataset(data.Dataset):
         # read assest/gts/grads/depths
         image = self.rgb_loader(self.images[index])
         gt = self.binary_loader(self.gts[index])
-        edge = self.binary_loader(self.edges[index])
+        # edge = self.binary_loader(self.edges[index])
 
         # data augumentation
-        image, gt, edge = cv_random_flip(image, gt, edge)
-        image, gt, edge = randomCrop(image, gt, edge)
-        image, gt, edge = randomRotation(image, gt, edge)
+        # image, gt, edge = cv_random_flip(image, gt, edge)
+        # image, gt, edge = randomCrop(image, gt, edge)
+        # image, gt, edge = randomRotation(image, gt, edge)
+
+        image, gt = cv_random_flip(image, gt)
+        image, gt = randomCrop(image, gt)
+        image, gt = randomRotation(image, gt)
 
         image = colorEnhance(image)
         gt = randomPeper(gt)
+        # edge = randomPeper(edge)
 
         image = self.img_transform(image)
         gt = self.gt_transform(gt)
-        edge = self.gt_transform(edge)
+        # edge = self.gt_transform(edge)
 
-        return image, edge, gt
+        return image, gt
 
     def filter_files(self):
         assert len(self.images) == len(self.gts) and len(self.gts) == len(self.images)
         images = []
         gts = []
-        for img_path, gt_path in tqdm(zip(self.images, self.gts)):
+        for img_path, gt_path in tzip(self.images, self.gts):
             img = Image.open(img_path)
             gt = Image.open(gt_path)
             if img.size == gt.size:
@@ -162,13 +170,13 @@ class CamObjDataset(data.Dataset):
 
 
 # dataloader for training
-def get_loader(image_root, gt_root, edge_root, batchsize, trainsize,
-               shuffle=True, num_workers=12, pin_memory=True):
-    dataset = CamObjDataset(image_root, gt_root, edge_root, trainsize)
+def get_loader(image_root, gt_root, batchsize, trainsize,
+               shuffle=True, num_workers=4, pin_memory=True):
+    dataset = CamObjDataset(image_root, gt_root, trainsize)
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batchsize,
                                   shuffle=shuffle,
-                                  num_workers=num_workers,
+                                # num_workers=num_workers,
                                   pin_memory=pin_memory)
     return data_loader
 

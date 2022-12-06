@@ -148,6 +148,8 @@ def create_model(
     if channel_mult == "":
         if image_size == 512:
             channel_mult = (1, 1, 2, 2, 4, 4)
+        elif image_size == 352:
+            channel_mult = (1, 1, 2, 2, 4, 4)
         elif image_size == 256:
             channel_mult = (1, 1, 2, 2, 4, 4)
         elif image_size == 128:
@@ -165,7 +167,7 @@ def create_model(
 
     return UNetModel(
         image_size=image_size,
-        in_channels=5,
+        in_channels=4,
         model_channels=num_channels,
         out_channels=2,#(3 if not learn_sigma else 6),
         num_res_blocks=num_res_blocks,
