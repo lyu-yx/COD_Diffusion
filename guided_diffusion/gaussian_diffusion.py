@@ -8,6 +8,7 @@ import enum
 import torch.nn.functional as F
 from torchvision.utils import save_image
 import torch
+import wandb
 import math
 # from visdom import Visdom
 # viz = Visdom(port=8850)
@@ -967,12 +968,13 @@ class GaussianDiffusion:
             terms["mse"] = mean_flat((target - model_output) ** 2)
             if "vb" in terms:
                 terms["loss"] = terms["mse"] + terms["vb"]
+                wandb.log({"loss": terms["loss"]})
             else:
-                terms["loss"] = terms["mse"]
+                wandb.log({"loss": terms["loss"]})
 
         else:
             raise NotImplementedError(self.loss_type)
-
+        
         return (terms, model_output)
 
 
