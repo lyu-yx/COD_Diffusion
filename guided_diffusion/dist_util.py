@@ -43,6 +43,7 @@ def setup_dist():
     s.close()
     os.environ["MASTER_PORT"] = str(port)
     dist.init_process_group(backend=backend, init_method="env://")
+    #dist.init_process_group(backend="gloo", init_method="env://") # windows
 
 
 def dev():

@@ -2,6 +2,7 @@ import copy
 import functools
 import os
 
+import wandb
 import argparse
 import blobfile as bf
 import logging
@@ -11,6 +12,8 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
+from torchvision.transforms import ToPILImage
+from PIL import Image
 
 from . import metrics
 from . import dist_util, logger
@@ -65,6 +68,8 @@ class TrainLoop:
         schedule_sampler=None,
         weight_decay=0.0,
         lr_anneal_steps=0,
+        single_visimg_pth,
+        single_visgt_pth,
     ):
         self.model = model
         self.data_loader = data_loader
@@ -87,7 +92,8 @@ class TrainLoop:
         self.schedule_sampler = schedule_sampler or UniformSampler(diffusion)
         self.weight_decay = weight_decay
         self.lr_anneal_steps = lr_anneal_steps
-
+        self.single_visimg_pth = single_visimg_pth
+        self.single_visgt_pth = single_visgt_pth
         self.step = 0
         self.resume_step = 0
         self.global_batch = self.batch_size * dist.get_world_size()
@@ -202,7 +208,6 @@ class TrainLoop:
 
             self.run_step(batch, cond)
 
-           
             i += 1
           
             if self.step % self.log_interval == 0:
@@ -215,6 +220,7 @@ class TrainLoop:
             self.step += 1
         # Save the last checkpoint if it wasn't already saved.
         if (self.step - 1) % self.save_interval != 0:
+            val_single_img(self.single_visimg_pth, self.single_visgt_pth)
             self.save()
 
     def run_step(self, batch, cond):
@@ -361,13 +367,13 @@ def log_loss_dict(diffusion, ts, losses):
     
 def create_argparser():
     defaults = dict(
-        data_dir="./data/testing",
+        data_dir="../BUDG/dataset/TestDataset/CAMO/",
         clip_denoised=True,
         num_samples=1,
         batch_size=1,
         use_ddim=False,
         model_path="",
-        num_ensemble=5      #number of samples in the ensemble
+        num_ensemble=3      # number of samples in the ensemble
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
@@ -458,3 +464,59 @@ def val(test_loader, model, epoch, save_path, writer):
             logging.info('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})\n[Best Epoch:{}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
                 epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm'],
                 best_epoch, best_metric_dict['mxFm'], best_metric_dict['Sm'], best_metric_dict['mxEm']))
+
+
+def val_single_img(img_pth, gt_pth):
+    """
+    validation function
+    """
+    args = create_argparser().parse_args()
+
+    with th.no_grad():
+        model, diffusion = create_model_and_diffusion(
+        **args_to_dict(args, model_and_diffusion_defaults().keys())
+    )
+
+        image = Image.open(img_pth)
+        image = np.asarray(image, np.float32)
+        
+        gt = Image.open(gt_pth)
+        gt = np.asarray(gt, np.float32)
+        
+        image = image.cuda()
+        gt = gt.cuda()
+        #res = model(image)
+        # start = th.cuda.Event(enable_timing=True)
+        # end = th.cuda.Event(enable_timing=True)
+
+        for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
+            model_kwargs = {}
+            # start.record()
+            sample_fn = (
+                diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
+            )
+            sample, _, _ = sample_fn(
+                model,
+                (args.batch_size, 3, args.image_size, args.image_size), image,
+                clip_denoised=args.clip_denoised,
+                model_kwargs=model_kwargs,
+            )
+
+        # end.record()
+        # th.cuda.synchronize()
+        # print('time for 1 sample', start.elapsed_time(end))  # time measurement for the generation of 1 sample
+
+        sample_result = th.tensor(sample)
+        img_out = ToPILImage(sample_result)
+        # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
+        # th.save(sample_result, './results/'+str(name)) #save the generated mask
+
+        img_out = F.upsample(sample_result, size=gt.shape, mode='bilinear', align_corners=False)
+        img_out = img_out.sigmoid().data.cpu().numpy().squeeze()
+        img_out = (img_out - img_out.min()) / (img_out.max() - img_out.min() + 1e-8)
+        wandb.log({"diffusion_result": img_out})
+        # TODO
+        '''
+        Threshold of predict mask
+        '''
+       

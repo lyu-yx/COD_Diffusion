@@ -3,6 +3,8 @@ Train a diffusion model on images.
 """
 import sys
 import argparse
+import wandb
+
 sys.path.append("..")
 sys.path.append(".")
 from guided_diffusion import dist_util, logger
@@ -19,6 +21,15 @@ import torch as th
 from guided_diffusion.train_util import TrainLoop
 #from visdom import Visdom
 #viz = Visdom(port=8850)
+
+wandb.init(project="Diffusion", name="diffusion_only")
+
+wandb.config = {
+  "learning_rate": 1e-5,
+  "epochs": 200,
+  "batch_size": 32
+}
+
 
 def main():
     args = create_argparser().parse_args()
@@ -69,6 +80,8 @@ def main():
         schedule_sampler=schedule_sampler,
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
+        single_visimg_pth=args.single_visimg_pth,
+        single_visgt_pth=args.single_visgt_pth,
     ).run_loop()
 
 
@@ -90,6 +103,8 @@ def create_argparser():
         resume_checkpoint='',#'"./results/pretrainedmodel.pt",
         use_fp16=False,
         fp16_scale_growth=1e-3,
+        single_visimg_pth="..\BUDG\dataset\TestDataset\COD10K\Imgs\COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",
+        single_visgt_pth="..\BUDG\dataset\TestDataset\COD10K\GT\COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

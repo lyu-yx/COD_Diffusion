@@ -10,6 +10,8 @@ from visdom import Visdom
 #viz = Visdom(port=8850)
 import sys
 import random
+
+
 sys.path.append(".")
 import numpy as np
 import time
