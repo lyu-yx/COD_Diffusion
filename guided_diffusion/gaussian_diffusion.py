@@ -970,6 +970,7 @@ class GaussianDiffusion:
                 terms["loss"] = terms["mse"] + terms["vb"]
                 wandb.log({"loss": terms["loss"]})
             else:
+                terms["loss"] = terms["mse"]
                 wandb.log({"loss": terms["loss"]})
 
         else:
