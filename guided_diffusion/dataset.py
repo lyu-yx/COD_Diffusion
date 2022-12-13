@@ -176,7 +176,7 @@ def get_loader(image_root, gt_root, batchsize, trainsize,
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batchsize,
                                   shuffle=shuffle,
-                                # num_workers=num_workers,
+                                  num_workers=num_workers,
                                   pin_memory=pin_memory)
     return data_loader
 
@@ -228,3 +228,12 @@ class test_dataset:
 
     def __len__(self):
         return self.size
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    root = '../BUDG/dataset/TrainDataset/'
+    coddataset = get_loader(image_root=root+'Imgs/', gt_root=root+'GT/', batchsize=1, trainsize=352)
+    
+    data_iter = iter(coddataset)
+    batch, cond = next(data_iter)
+    print(f'batch size:{batch.size}  cond size:{cond.size}')

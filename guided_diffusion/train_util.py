@@ -220,7 +220,7 @@ class TrainLoop:
             self.step += 1
         # Save the last checkpoint if it wasn't already saved.
         if (self.step - 1) % self.save_interval != 0:
-            val_single_img(self.single_visimg_pth, self.single_visgt_pth)
+            # val_single_img(self.single_visimg_pth, self.single_visgt_pth)
             self.save()
 
     def run_step(self, batch, cond):
@@ -507,13 +507,14 @@ def val_single_img(img_pth, gt_pth):
         # print('time for 1 sample', start.elapsed_time(end))  # time measurement for the generation of 1 sample
 
         sample_result = th.tensor(sample)
-        img_out = ToPILImage(sample_result)
+        
         # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
         # th.save(sample_result, './results/'+str(name)) #save the generated mask
 
         img_out = F.upsample(sample_result, size=gt.shape, mode='bilinear', align_corners=False)
         img_out = img_out.sigmoid().data.cpu().numpy().squeeze()
         img_out = (img_out - img_out.min()) / (img_out.max() - img_out.min() + 1e-8)
+        img_out = ToPILImage(img_out)
         wandb.log({"diffusion_result": img_out})
         # TODO
         '''

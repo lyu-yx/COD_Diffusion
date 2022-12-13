@@ -10,7 +10,7 @@ sys.path.append(".")
 from guided_diffusion import dist_util, logger
 from guided_diffusion.dataset import CamObjDataset, get_loader, test_dataset
 from guided_diffusion.resample import create_named_schedule_sampler
-from guided_diffusion.bratsloader import BRATSDataset
+# from guided_diffusion.bratsloader import BRATSDataset
 from guided_diffusion.script_util import (
     model_and_diffusion_defaults,
     create_model_and_diffusion,
@@ -24,11 +24,11 @@ from guided_diffusion.train_util import TrainLoop
 
 wandb.init(project="Diffusion", name="diffusion_only")
 
-wandb.config = {
-  "learning_rate": 1e-5,
-  "epochs": 200,
-  "batch_size": 32
-}
+# wandb.config = {
+#   "learning_rate": 1e-5,
+#   "epochs": 200,
+#   "batch_size": 32
+# }
 
 
 def main():
@@ -42,7 +42,7 @@ def main():
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
     model.to(dist_util.dev())
-    schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion,  maxt=1000)
+    schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion, maxt=1000)
 
     logger.log("creating data loader...")
     #ds = BRATSDataset(args.data_dir, test_flag=False)
@@ -100,7 +100,7 @@ def create_argparser():
         ema_rate="0.9999",  # comma-separated list of EMA values
         log_interval=100,
         save_interval=5000,
-        resume_checkpoint='',#'"./results/pretrainedmodel.pt",
+        resume_checkpoint='', # "./results/pretrainedmodel.pt",
         use_fp16=False,
         fp16_scale_growth=1e-3,
         single_visimg_pth="..\BUDG\dataset\TestDataset\COD10K\Imgs\COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",

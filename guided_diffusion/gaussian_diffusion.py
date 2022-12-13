@@ -968,10 +968,12 @@ class GaussianDiffusion:
             terms["mse"] = mean_flat((target - model_output) ** 2)
             if "vb" in terms:
                 terms["loss"] = terms["mse"] + terms["vb"]
-                wandb.log({"loss": terms["loss"]})
+                wandb.log({"mse and vb loss": terms["loss"].data,
+                           "mse loss": terms["mse"].data,
+                           "vb loss": terms["vb"].data})
             else:
-                terms["loss"] = terms["mse"]
-                wandb.log({"loss": terms["loss"]})
+                
+                wandb.log({"mse loss": terms["mse"].data})
 
         else:
             raise NotImplementedError(self.loss_type)
