@@ -514,8 +514,8 @@ def val_single_img(img_pth, gt_pth):
         img_out = F.upsample(sample_result, size=gt.shape, mode='bilinear', align_corners=False)
         img_out = img_out.sigmoid().data.cpu().numpy().squeeze()
         img_out = (img_out - img_out.min()) / (img_out.max() - img_out.min() + 1e-8)
-        img_out = ToPILImage(img_out)
-        wandb.log({"diffusion_result": img_out})
+        image = wandb.Image(img_out, caption="Input image")
+        wandb.log({"diffusion_result": image})
         # TODO
         '''
         Threshold of predict mask
