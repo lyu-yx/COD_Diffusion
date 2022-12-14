@@ -67,27 +67,46 @@ def setup_dist():
     os.environ["MASTER_PORT"] = str(port)
     dist.init_process_group(backend=backend, init_method="env://")
 
+# def dev():
+#     """
+#     Get the device to use for torch.distributed.
+#     """
+#     if th.cuda.is_available():
+#         return th.device(f"cuda")
+#     return th.device("cpu")
+
 def dev():
     """
     Get the device to use for torch.distributed.
     """
     if th.cuda.is_available():
-        return th.device(f"cuda")
+        return th.device(f"cuda:{MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE}")
     return th.device("cpu")
 
+
+# def load_state_dict(path, **kwargs):
+#     """
+#     Load a PyTorch file without redundant fetches across MPI ranks.
+#     """
+#     mpigetrank=0
+#     if mpigetrank==0:
+#         with bf.BlobFile(path, "rb") as f:
+#             data = f.read()
+#     else:
+#         data = None
+#     return th.load(io.BytesIO(data), **kwargs)
 
 def load_state_dict(path, **kwargs):
     """
     Load a PyTorch file without redundant fetches across MPI ranks.
     """
-    mpigetrank=0
-    if mpigetrank==0:
+    if MPI.COMM_WORLD.Get_rank() == 0:
         with bf.BlobFile(path, "rb") as f:
             data = f.read()
     else:
         data = None
+    data = MPI.COMM_WORLD.bcast(data)
     return th.load(io.BytesIO(data), **kwargs)
-
 
 def sync_params(params):
     """
