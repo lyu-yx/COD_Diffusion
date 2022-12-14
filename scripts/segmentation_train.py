@@ -22,7 +22,7 @@ from guided_diffusion.train_util import TrainLoop
 #from visdom import Visdom
 #viz = Visdom(port=8850)
 
-wandb.init(project="Diffusion", name="diffusion_only")
+
 
 # wandb.config = {
 #   "learning_rate": 1e-5,
@@ -113,4 +113,5 @@ def create_argparser():
 
 
 if __name__ == "__main__":
+    wandb.init(project="Diffusion", name="diffusion_only")
     main()
