@@ -34,14 +34,18 @@ from guided_diffusion.train_util import TrainLoop
 def main():
     args = create_argparser().parse_args()
 
-    dist_util.setup_dist()
+    dist_util.setup_dist(args)
     logger.configure()
 
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
-    model.to(dist_util.dev())
+    if args.multi_gpu:
+        model = th.nn.DataParallel(model,device_ids=[int(id) for id in args.multi_gpu.split(',')])
+        model.to(device = th.device('cuda', int(args.gpu_dev)))
+    else:
+        model.to(dist_util.dev())
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion, maxt=1000)
 
     logger.log("creating data loader...")
@@ -103,6 +107,8 @@ def create_argparser():
         resume_checkpoint='', # "./results/pretrainedmodel.pt",
         use_fp16=False,
         fp16_scale_growth=1e-3,
+        gpu_dev = "0",
+        multi_gpu = None, # "0,1,2"
         single_visimg_pth="..\BUDG\dataset\TestDataset\COD10K\Imgs\COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",
         single_visgt_pth="..\BUDG\dataset\TestDataset\COD10K\GT\COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",
     )
