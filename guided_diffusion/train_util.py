@@ -53,7 +53,7 @@ class TrainLoop:
         model,
         classifier,
         diffusion,
-        # data,
+        data,
         data_loader,
         val_loader,
         batch_size,
@@ -75,7 +75,7 @@ class TrainLoop:
         self.data_loader = data_loader
         self.classifier = classifier
         self.diffusion = diffusion
-        # self.data = data
+        self.data = data
         self.batch_size = batch_size
         self.microbatch = microbatch if microbatch > 0 else batch_size
         self.lr = lr
@@ -197,7 +197,7 @@ class TrainLoop:
 
 
             try:
-                # for i, (img, gt, edge) in enumerate(self.data_loader, start=1):
+                # batch for RGB; cond for label
                     batch, cond = next(data_iter)
                     
             except StopIteration:

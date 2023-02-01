@@ -140,7 +140,7 @@ class CamObjDataset(data.Dataset):
         gt = self.gt_transform(gt)
         # edge = self.gt_transform(edge)
 
-        return image, gt
+        return (image, gt)
 
     def filter_files(self):
         assert len(self.images) == len(self.gts) and len(self.gts) == len(self.images)
