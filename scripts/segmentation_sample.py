@@ -67,7 +67,10 @@ def main():
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
+    cnt = 0
     while len(all_images) * args.batch_size < args.num_samples:
+        cnt += 1
+        print('curr_cnt', cnt)
         img, gt = next(data)  #should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
         noise = th.randn_like(img[:, :1, ...])
         img = th.cat((img, noise), dim=1)     # add a noise channel
