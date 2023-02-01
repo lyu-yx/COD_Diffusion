@@ -62,7 +62,7 @@ def main():
     val_loader = test_dataset(image_root=args.val_root + 'Imgs/',
                               gt_root=args.val_root + 'GT/',
                               testsize=args.test_size)
-    #data = iter(train_loader)
+    data = iter(train_loader)
 
 
     logger.log("training...")
@@ -70,7 +70,7 @@ def main():
         model=model,
         diffusion=diffusion,
         classifier=None,
-        # data=data,
+        data=data,
         data_loader=train_loader,
         val_loader=val_loader,
         batch_size=args.batch_size,
