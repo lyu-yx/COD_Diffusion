@@ -31,7 +31,7 @@ def setup_dist(args):
     if backend == "gloo":
         hostname = "localhost"
     else:
-        hostname = socket.gethostbyname(socket.getfqdn())
+        hostname = socket.gethostbyname(socket.getfqdn().split('.')[0]) # anti VPN suffix
     os.environ["MASTER_ADDR"] = '127.0.1.1' # comm.bcast(hostname, root=0)
     os.environ["RANK"] = '0' # str(comm.rank)
     os.environ["WORLD_SIZE"] = '1' # str(comm.size)

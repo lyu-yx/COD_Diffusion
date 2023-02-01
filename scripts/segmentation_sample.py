@@ -46,9 +46,8 @@ def dice_score(pred, targs):
 
 def main():
     args = create_argparser().parse_args()
-    dist_util.setup_dist()
+    dist_util.setup_dist(args)
     logger.configure()
-
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
@@ -105,7 +104,7 @@ def main():
 
             s = th.tensor(sample)
             # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
-            th.save(s, './results/'+str(path[0].split("/", -1))) #save the generated mask
+            th.save(s, './results/'+str(i)) #save the generated mask
 
 def create_argparser():
     defaults = dict(
@@ -117,6 +116,8 @@ def create_argparser():
         num_samples=1,
         batch_size=1,
         use_ddim=False,
+        gpu_dev = "0",
+        multi_gpu = None, # "0,1,2"
         model_path="./results/savedmodel075000.pt",
         num_ensemble=5      #number of samples in the ensemble
     )
