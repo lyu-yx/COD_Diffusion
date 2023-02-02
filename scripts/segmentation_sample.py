@@ -99,11 +99,11 @@ def main():
 
             s = th.tensor(sample).cpu().numpy()
             
-            plt.imsave('./results/' + str(name) + '.jpg', s, cmap='gist_gray') # save the generated mask
+            plt.imsave('./results/' + str(name).split('.')[0] + 'png', s, cmap='gist_gray') # save the generated mask
         
         end.record()
         th.cuda.synchronize()
-        print('time for {} sample: {}', args.num_ensemble, start.elapsed_time(end))  #time measurement for the generation of 1 sample
+        print('time for {} sample: {}'.format(args.num_ensemble, start.elapsed_time(end)))  #time measurement for the generation of 1 sample
 
 def create_argparser():
     defaults = dict(
