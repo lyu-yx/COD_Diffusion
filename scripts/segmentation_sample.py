@@ -97,7 +97,7 @@ def main():
                 model_kwargs=model_kwargs,
             )
 
-            s = th.tensor(sample).cpu().numpy()
+            s = th.tensor(sample).squeeze().cpu().numpy()
             
             plt.imsave('./results/' + str(name).split('.')[0] + 'png', s, cmap='gist_gray') # save the generated mask
         
