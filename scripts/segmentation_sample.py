@@ -15,6 +15,7 @@ import random
 sys.path.append(".")
 import numpy as np
 import time
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import torch as th
 import torch.distributed as dist
@@ -54,12 +55,12 @@ def main():
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
 
-    ds = EvalDataset(args.data_dir, gt_root=args.gt_dir, testsize=352)
-    datal = th.utils.data.DataLoader(
-        ds,
-        batch_size=1,
-        shuffle=False)
-    data = iter(datal)
+    val_loader = EvalDataset(args.data_dir, gt_root=args.gt_dir, testsize=352)
+    # datal = th.utils.data.DataLoader(
+    #     val_loader,
+    #     batch_size=1,
+    #     shuffle=False)
+    # data = iter(datal)
     all_images = []
     model.load_state_dict(
         dist_util.load_state_dict(args.model_path, map_location="cpu")
@@ -68,21 +69,14 @@ def main():
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
-    cnt = 0
-    while len(all_images) * args.batch_size < args.num_samples:
-        cnt += 1
-        print('curr_cnt', cnt)
-        img, _, name, _ = next(data)  #should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
+
+
+    # while len(all_images) * args.batch_size < args.num_samples:
+    for i in tqdm(range(val_loader.size)):
+        img, _, name, _ = val_loader.load_data() # should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
         noise = th.randn_like(img[:, :1, ...])
         img = th.cat((img, noise), dim=1)     # add a noise channel
-        # slice_ID=path[0].split("/", -1)[3]
-
-        # viz.image(visualize(img[0,0,...]), opts=dict(caption="img input0"))
-        # viz.image(visualize(img[0, 1, ...]), opts=dict(caption="img input1"))
-        # viz.image(visualize(img[0, 2, ...]), opts=dict(caption="img input2"))
-        # viz.image(visualize(img[0, 3, ...]), opts=dict(caption="img input3"))
-        # viz.image(visualize(img[0, 4, ...]), opts=dict(caption="img input4"))
-
+        
         logger.log("sampling...")
 
         # start = th.cuda.Event(enable_timing=True)
@@ -107,7 +101,7 @@ def main():
             #print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
 
             s = th.tensor(sample).numpy()
-            # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
+            
             plt.imsave('./results/' + str(name) + '.jpg', s, cmap='gist_gray') # save the generated mask
 
 def create_argparser():
