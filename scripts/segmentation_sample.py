@@ -81,11 +81,12 @@ def main():
 
         start = th.cuda.Event(enable_timing=True)
         end = th.cuda.Event(enable_timing=True)
-
+        
+        start.record()
 
         for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
             model_kwargs = {}
-            # start.record()
+            
             sample_fn = (
                 diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
             )
@@ -96,13 +97,13 @@ def main():
                 model_kwargs=model_kwargs,
             )
 
-            end.record()
-            th.cuda.synchronize()
-            print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
-
             s = th.tensor(sample).cpu().numpy()
             
             plt.imsave('./results/' + str(name) + '.jpg', s, cmap='gist_gray') # save the generated mask
+        
+        end.record()
+        th.cuda.synchronize()
+        print('time for {} sample: {}', args.num_ensemble, start.elapsed_time(end))  #time measurement for the generation of 1 sample
 
 def create_argparser():
     defaults = dict(
