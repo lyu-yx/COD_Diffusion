@@ -15,10 +15,11 @@ import random
 sys.path.append(".")
 import numpy as np
 import time
+import cv2
 import torch as th
 import torch.distributed as dist
 from guided_diffusion import dist_util, logger
-from guided_diffusion.dataset import CamObjDataset
+from guided_diffusion.dataset import test_dataset as EvalDataset
 # from guided_diffusion.bratsloader import BRATSDataset
 from guided_diffusion.script_util import (
     NUM_CLASSES,
@@ -53,7 +54,7 @@ def main():
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
 
-    ds = CamObjDataset(args.data_dir, gt_root=args.gt_dir, trainsize=352)
+    ds = EvalDataset(args.data_dir, gt_root=args.gt_dir, trainsize=352)
     datal = th.utils.data.DataLoader(
         ds,
         batch_size=1,
@@ -71,7 +72,7 @@ def main():
     while len(all_images) * args.batch_size < args.num_samples:
         cnt += 1
         print('curr_cnt', cnt)
-        img, gt = next(data)  #should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
+        img, _, name, _ = next(data)  #should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
         noise = th.randn_like(img[:, :1, ...])
         img = th.cat((img, noise), dim=1)     # add a noise channel
         # slice_ID=path[0].split("/", -1)[3]
@@ -107,7 +108,7 @@ def main():
 
             s = th.tensor(sample)
             # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
-            th.save(s, './results/'+str(i)) #save the generated mask
+            cv2.imwrite(s, './results/' + str(name) + '.jpg') # save the generated mask
 
 def create_argparser():
     defaults = dict(
