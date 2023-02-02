@@ -54,7 +54,7 @@ def main():
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
 
-    ds = EvalDataset(args.data_dir, gt_root=args.gt_dir, trainsize=352)
+    ds = EvalDataset(args.data_dir, gt_root=args.gt_dir, testsize=352)
     datal = th.utils.data.DataLoader(
         ds,
         batch_size=1,
@@ -109,7 +109,7 @@ def main():
             s = th.tensor(sample).numpy()
             # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
             plt.imsave('./results/' + str(name) + '.jpg', s, cmap='gist_gray') # save the generated mask
-            
+
 def create_argparser():
     defaults = dict(
         data_dir="../BUDG/dataset/TestDataset/CAMO/Imgs/",
