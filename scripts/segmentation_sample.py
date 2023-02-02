@@ -15,7 +15,7 @@ import random
 sys.path.append(".")
 import numpy as np
 import time
-import cv2
+import matplotlib.pyplot as plt
 import torch as th
 import torch.distributed as dist
 from guided_diffusion import dist_util, logger
@@ -106,10 +106,10 @@ def main():
             th.cuda.synchronize()
             #print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
 
-            s = th.tensor(sample)
+            s = th.tensor(sample).numpy()
             # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
-            cv2.imwrite(s, './results/' + str(name) + '.jpg') # save the generated mask
-
+            plt.imsave('./results/' + str(name) + '.jpg', s, cmap='gist_gray') # save the generated mask
+            
 def create_argparser():
     defaults = dict(
         data_dir="../BUDG/dataset/TestDataset/CAMO/Imgs/",
