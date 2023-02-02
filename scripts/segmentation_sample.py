@@ -79,8 +79,8 @@ def main():
         
         logger.log("sampling...")
 
-        # start = th.cuda.Event(enable_timing=True)
-        # end = th.cuda.Event(enable_timing=True)
+        start = th.cuda.Event(enable_timing=True)
+        end = th.cuda.Event(enable_timing=True)
 
 
         for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
@@ -96,11 +96,11 @@ def main():
                 model_kwargs=model_kwargs,
             )
 
-            # end.record()
+            end.record()
             th.cuda.synchronize()
-            #print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
+            print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
 
-            s = th.tensor(sample).numpy()
+            s = th.tensor(sample).cpu().numpy()
             
             plt.imsave('./results/' + str(name) + '.jpg', s, cmap='gist_gray') # save the generated mask
 
