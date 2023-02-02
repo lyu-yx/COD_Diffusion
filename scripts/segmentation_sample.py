@@ -99,7 +99,7 @@ def main():
 
             s = th.tensor(sample).squeeze().cpu().numpy()
             
-            plt.imsave('./results/' + str(name).split('.')[0] + 'png', s, cmap='gist_gray') # save the generated mask
+            plt.imsave('./results/' + str(name).split('.')[0] + '.png', s, cmap='gist_gray') # save the generated mask
         
         end.record()
         th.cuda.synchronize()
