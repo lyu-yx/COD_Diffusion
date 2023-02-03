@@ -120,7 +120,7 @@ def create_argparser():
         use_ddim=False,
         gpu_dev = "0",
         multi_gpu = None, # "0,1,2"
-        model_path="./results/savedmodel075000.pt",
+        model_path="./results/savedmodel025000.pt",
         num_ensemble=3      #number of samples in the ensemble
     )
     defaults.update(model_and_diffusion_defaults())
