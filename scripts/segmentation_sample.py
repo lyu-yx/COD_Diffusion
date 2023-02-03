@@ -120,8 +120,8 @@ def create_argparser():
         use_ddim=False,
         gpu_dev = "0",
         multi_gpu = None, # "0,1,2"
-        model_path="./results/optsavedmodel025000.pt",
-        num_ensemble=5      #number of samples in the ensemble
+        model_path="./results/optsavedmodel075000.pt",
+        num_ensemble=3      #number of samples in the ensemble
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
