@@ -87,7 +87,6 @@ def main():
 
         for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
             model_kwargs = {}
-            
             sample_fn = (
                 diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
             )
@@ -98,8 +97,8 @@ def main():
                 model_kwargs=model_kwargs,
             )
 
-            output = th.tensor(sample).squeeze().cpu()
-            output = F.upsample(output, size=img_size, mode='bilinear', align_corners=False).numpy()
+            output = th.tensor(sample).cpu()
+            output = F.interpolate(output, size=img_size, mode='bilinear', align_corners=False).numpy()
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
 
             plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
