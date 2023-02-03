@@ -177,7 +177,7 @@ class TrainLoop:
     def _load_optimizer_state(self):
         main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
         opt_checkpoint = bf.join(
-            bf.dirname(main_checkpoint), f"opt{self.resume_step:06}.pt"
+            bf.dirname(main_checkpoint), f"opt{self.resume_step}.pt"
         )
         if bf.exists(opt_checkpoint):
             logger.log(f"loading optimizer state from checkpoint: {opt_checkpoint}")
@@ -213,6 +213,8 @@ class TrainLoop:
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
+                # iter_num = int(self.step / self.save_interval)
+                # val_single_img(self.single_visimg_pth, self.single_visgt_pth, iter_num)
                 self.save()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
@@ -220,7 +222,6 @@ class TrainLoop:
             self.step += 1
         # Save the last checkpoint if it wasn't already saved.
         if (self.step - 1) % self.save_interval != 0:
-            # val_single_img(self.single_visimg_pth, self.single_visgt_pth)
             self.save()
 
     def run_step(self, batch, cond):
@@ -300,9 +301,9 @@ class TrainLoop:
             if dist.get_rank() == 0:
                 logger.log(f"saving model {rate}...")
                 if not rate:
-                    filename = f"savedmodel{(self.step+self.resume_step):06d}.pt"
+                    filename = f"savedmodel{(self.step+self.resume_step)}.pt"
                 else:
-                    filename = f"emasavedmodel_{rate}_{(self.step+self.resume_step):06d}.pt"
+                    filename = f"emasavedmodel_{rate}_{(self.step+self.resume_step)}.pt"
                 with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
                     th.save(state_dict, f)
 
@@ -312,7 +313,7 @@ class TrainLoop:
 
         if dist.get_rank() == 0:
             with bf.BlobFile(
-                bf.join(get_blob_logdir(), f"optsavedmodel{(self.step+self.resume_step):06d}.pt"),
+                bf.join(get_blob_logdir(), f"optsavedmodel{(self.step+self.resume_step)}.pt"),
                 "wb",
             ) as f:
                 th.save(self.opt.state_dict(), f)
@@ -350,7 +351,7 @@ def find_resume_checkpoint():
 def find_ema_checkpoint(main_checkpoint, step, rate):
     if main_checkpoint is None:
         return None
-    filename = f"ema_{rate}_{(step):06d}.pt"
+    filename = f"ema_{rate}_{(step)}.pt"
     path = bf.join(bf.dirname(main_checkpoint), filename)
     if bf.exists(path):
         return path
@@ -466,10 +467,27 @@ def val(test_loader, model, epoch, save_path, writer):
                 best_epoch, best_metric_dict['mxFm'], best_metric_dict['Sm'], best_metric_dict['mxEm']))
 
 
-def val_single_img(img_pth, gt_pth):
+def val_single_img(img_pth, gt_pth, itr_num):
     """
     validation function
     """
+    
+    modelpath = "./results/optsavedmodel" + str(itr_num * 5000) + ".pt"
+    def create_argparser():
+        defaults = dict(
+            data_dir="../BUDG/dataset/TestDataset/CAMO/",
+            clip_denoised=True,
+            num_samples=1,
+            batch_size=1,
+            use_ddim=False,
+            model_path=modelpath,
+            num_ensemble=3      # number of samples in the ensemble
+        )
+        defaults.update(model_and_diffusion_defaults())
+        parser = argparse.ArgumentParser()
+        add_dict_to_argparser(parser, defaults)
+        return parser
+
     args = create_argparser().parse_args()
 
     with th.no_grad():
