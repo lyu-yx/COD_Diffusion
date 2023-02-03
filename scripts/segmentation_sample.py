@@ -98,8 +98,8 @@ def main():
                 model_kwargs=model_kwargs,
             )
 
-            output = th.tensor(sample).squeeze().cpu().numpy()
-            output = F.upsample(output, size=img_size, mode='bilinear', align_corners=False)
+            output = th.tensor(sample).squeeze().cpu()
+            output = F.upsample(output, size=img_size, mode='bilinear', align_corners=False).numpy()
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
 
             plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
