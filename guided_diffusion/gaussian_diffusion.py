@@ -570,8 +570,8 @@ class GaussianDiffusion:
         else:
            for i in indices:
                 t = th.tensor([i] * shape[0], device=device)
-                if i%100==0:
-                    print('sampling step', i)
+                if i % 1000 == 0:
+                    print('sampling')
                     #viz.image(visualize(img.cpu()[0, -1,...]), opts=dict(caption="sample"+ str(i) ))
 
                 with th.no_grad():
@@ -968,12 +968,16 @@ class GaussianDiffusion:
             terms["mse"] = mean_flat((target - model_output) ** 2)
             if "vb" in terms:
                 terms["loss"] = terms["mse"] + terms["vb"]
-                wandb.log({"loss: mse + vb": terms["loss"],
-                           "mse part": terms["mse"],
-                           "vb part": terms["vb"]})
+                lossdata = terms["loss"].data
+                msedata = terms["mse"].data
+                vbdata = terms["vb"].data
+                wandb.log({"loss: mse + vb": lossdata,
+                           "mse part": msedata,
+                           "vb part": vbdata})
             else:
                 terms["loss"] = terms["mse"]
-                wandb.log({"loss: mse only": terms["loss"]})
+                lossdata = terms["loss"].data
+                wandb.log({"loss: mse only": lossdata})
 
         else:
             raise NotImplementedError(self.loss_type)

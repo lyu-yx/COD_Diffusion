@@ -19,6 +19,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import torch as th
 import torch.distributed as dist
+import torch.nn.functional as F
 from guided_diffusion import dist_util, logger
 from guided_diffusion.dataset import test_dataset as EvalDataset
 # from guided_diffusion.bratsloader import BRATSDataset
@@ -73,10 +74,10 @@ def main():
 
     # while len(all_images) * args.batch_size < args.num_samples:
     for i in tqdm(range(val_loader.size)):
-        img, _, name, _ = val_loader.load_data() # should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
+        img, gt, name, _ = val_loader.load_data() # should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
         noise = th.randn_like(img[:, :1, ...])
         img = th.cat((img, noise), dim=1)     # add a noise channel
-        
+        img_size = np.asarray(gt, np.float32).shape
         logger.log("sampling...")
 
         start = th.cuda.Event(enable_timing=True)
@@ -97,13 +98,15 @@ def main():
                 model_kwargs=model_kwargs,
             )
 
-            s = th.tensor(sample).squeeze().cpu().numpy()
-            
-            plt.imsave('./results/' + str(name).split('.')[0] + '.png', s, cmap='gist_gray') # save the generated mask
+            output = th.tensor(sample).squeeze().cpu().numpy()
+            output = F.upsample(output, size=gt.shape, mode='bilinear', align_corners=False)
+            output = (output - output.min()) / (output.max() - output.min() + 1e-8)
+
+            plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
         
         end.record()
         th.cuda.synchronize()
-        print('time for {} sample: {}'.format(args.num_ensemble, start.elapsed_time(end)))  #time measurement for the generation of 1 sample
+        print('time for {} sample: {} second'.format(args.num_ensemble, start.elapsed_time(end)/1000))  #time measurement for the generation of 1 sample
 
 def create_argparser():
     defaults = dict(
