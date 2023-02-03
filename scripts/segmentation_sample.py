@@ -99,7 +99,7 @@ def main():
             )
 
             output = th.tensor(sample).squeeze().cpu().numpy()
-            output = F.upsample(output, size=gt.shape, mode='bilinear', align_corners=False)
+            output = F.upsample(output, size=img_size, mode='bilinear', align_corners=False)
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
 
             plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask

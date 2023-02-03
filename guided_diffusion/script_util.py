@@ -33,8 +33,8 @@ def classifier_defaults():
         classifier_use_fp16=False,
         classifier_width=128,
         classifier_depth=2,
-        classifier_attention_resolutions="16",  # "32,16,8"
-        classifier_use_scale_shift_norm=False,  # True 
+        classifier_attention_resolutions="32,16,8",  # "32,16,8"
+        classifier_use_scale_shift_norm=True ,  # True 
         classifier_resblock_updown=True,  # False
         classifier_pool="spatial",
     )
@@ -48,15 +48,15 @@ def model_and_diffusion_defaults():
         image_size=352,
         num_channels=128,
         num_res_blocks=2,
-        num_heads=1,
+        num_heads=4,
         num_heads_upsample=-1,
         num_head_channels=-1,
-        attention_resolutions="16",
+        attention_resolutions="16,8",
         channel_mult="",
         dropout=0.0,
         class_cond=False,
         use_checkpoint=False,
-        use_scale_shift_norm=False, #True
+        use_scale_shift_norm=True, #
         resblock_updown=False,
         use_fp16=False,
         use_new_attention_order=False,
