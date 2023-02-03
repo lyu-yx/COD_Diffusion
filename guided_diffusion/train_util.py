@@ -471,8 +471,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
     """
     validation function
     """
-    
-    modelpath = "./results/optsavedmodel" + str(itr_num * 5000) + ".pt"
+    modelpath = "./results/savedmodel" + str(itr_num * 5000) + ".pt"
     def create_argparser():
         defaults = dict(
             data_dir="../BUDG/dataset/TestDataset/CAMO/",
