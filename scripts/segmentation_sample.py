@@ -64,15 +64,21 @@ def main():
     # data = iter(datal)
     all_images = []
 
-    if args.multi_gpu:
-        model = th.nn.DataParallel(model,device_ids=[int(id) for id in args.multi_gpu.split(',')])
-        model.to(device = th.device('cuda'))
-        # model.to(device = th.device('cuda', int(args.gpu_dev)))
 
-    model.load_state_dict(
-        dist_util.load_state_dict(args.model_path, map_location="gpu")
-    )
-    # model.to(dist_util.dev())
+    state_dict = dist_util.load_state_dict(args.model_path, map_location="cpu")
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        # name = k[7:] # remove `module.`
+        if 'module.' in k:
+            new_state_dict[k[7:]] = v
+            # load params
+        else:
+            new_state_dict = state_dict
+
+    model.load_state_dict(new_state_dict)
+    model.to(dist_util.dev())
+    
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
