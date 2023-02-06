@@ -270,10 +270,10 @@ class TrainLoop:
                 )
             losses = losses1[0]
             sample = losses1[1]
-
+            # logging
             loss = (losses["loss"] * weights).mean()
             wandb.log({"loss": loss})
-            
+
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
             )
