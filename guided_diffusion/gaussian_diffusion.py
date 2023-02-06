@@ -967,8 +967,8 @@ class GaussianDiffusion:
             }[self.model_mean_type]
             terms["mse"] = mean_flat((target - model_output) ** 2)
             if "vb" in terms:
-                print('terms["loss"]', terms["loss"])
                 terms["loss"] = terms["mse"] + terms["vb"]
+                print('terms["loss"]', terms["loss"])
                 lossdata = terms["loss"].tolist()
                 msedata = terms["mse"].tolist()
                 vbdata = terms["vb"].tolist()
@@ -976,8 +976,9 @@ class GaussianDiffusion:
                            "mse part": msedata,
                            "vb part": vbdata})
             else:
-                print('terms["loss"]', terms["loss"])
+                
                 terms["loss"] = terms["mse"]
+                print('terms["loss"]', terms["loss"])
                 lossdata = terms["loss"].data
                 wandb.log({"loss: mse only": lossdata})
 
