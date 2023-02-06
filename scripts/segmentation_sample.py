@@ -78,7 +78,7 @@ def main():
 
     model.load_state_dict(new_state_dict)
     model.to(dist_util.dev())
-    
+
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
@@ -109,11 +109,14 @@ def main():
                 model_kwargs=model_kwargs,
             )
 
-            output = th.tensor(sample).cpu()
-            output = F.interpolate(output, size=img_size, mode='bilinear', align_corners=False).numpy()
-            output = (output - output.min()) / (output.max() - output.min() + 1e-8)
+            # output = th.tensor(sample).cpu()
+            # output = F.interpolate(output, size=img_size, mode='bilinear', align_corners=False).numpy()
+            # output = (output - output.min()) / (output.max() - output.min() + 1e-8)
 
-            plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
+            s = th.tensor(sample).squeeze().cpu().numpy()
+
+            plt.imsave('./results/' + str(name).split('.')[0] + '.png', s, cmap='gist_gray') # save the generated mask
+            # plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
         
         end.record()
         th.cuda.synchronize()
