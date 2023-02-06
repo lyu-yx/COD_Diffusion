@@ -109,13 +109,13 @@ def main():
                 model_kwargs=model_kwargs,
             )
 
-            # output = th.tensor(sample).cpu()
-            # output = F.interpolate(output, size=img_size, mode='bilinear', align_corners=False).numpy()
-            # output = (output - output.min()) / (output.max() - output.min() + 1e-8)
-
-            s = th.tensor(sample).squeeze().cpu().numpy()
-
-            plt.imsave('./results/' + str(name).split('.')[0] + '.png', s, cmap='gist_gray') # save the generated mask
+            output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
+            output = output.squeeze().cpu().numpy()
+            output = (output - output.min()) / (output.max() - output.min() + 1e-8)
+            plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
+            
+            # s = th.tensor(sample).squeeze().cpu().numpy()
+            # plt.imsave('./results/' + str(name).split('.')[0] + '.png', s, cmap='gist_gray') # save the generated mask
             # plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
         
         end.record()
