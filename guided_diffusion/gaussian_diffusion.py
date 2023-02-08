@@ -543,33 +543,25 @@ class GaussianDiffusion:
             final["sample"] = sample
             final["cal"] = cal
 
-            cal_out = torch.clamp(final["cal"] + 0.25 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
+            # cal_out = torch.clamp(final["cal"] + 0.25 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
         else:
             print('no dpm-solver')
-
-
-
-
-        for sample in self.p_sample_loop_progressive(
-            model,
-            shape,
-            noise=x_noisy,
-            clip_denoised=clip_denoised,
-            denoised_fn=denoised_fn,
-            cond_fn=cond_fn,
-            org=org,
-            model_kwargs=model_kwargs,
-            device=device,
-            progress=progress,
-        ):
-            final = sample
-        
-        if dice_score(final["sample"][:,-1,:,:].unsqueeze(1), final["cal"]) < 0.65:
-            cal_out = torch.clamp(final["cal"] + 0.25 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
-        else:
-            cal_out = torch.clamp(final["cal"] * 0.5 + 0.5 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
-        
-        return final["sample"], x_noisy, img, final["cal"], cal_out
+            for sample in self.p_sample_loop_progressive(
+                model,
+                shape,
+                noise=x_noisy,
+                clip_denoised=clip_denoised,
+                denoised_fn=denoised_fn,
+                cond_fn=cond_fn,
+                org=org,
+                model_kwargs=model_kwargs,
+                device=device,
+                progress=progress,
+            ):
+                final = sample
+            
+            
+        return final["sample"], x_noisy, img
 
 
     def p_sample_loop_progressive(
