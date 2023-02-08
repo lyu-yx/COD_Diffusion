@@ -90,7 +90,7 @@ def main():
         noise = th.randn_like(img[:, :1, ...])
         img = th.cat((img, noise), dim=1)     # add a noise channel
         img_size = np.asarray(gt, np.float32).shape
-        logger.log("sampling...")
+        # logger.log("sampling...")
 
         start = th.cuda.Event(enable_timing=True)
         end = th.cuda.Event(enable_timing=True)
