@@ -17,6 +17,8 @@ import torch as th
 #from .train_util import visualize
 from .nn import mean_flat
 from .losses import normal_kl, discretized_gaussian_log_likelihood
+from .utils import staple, dice_score, norm
+from .dpm_solver import NoiseScheduleVP, model_wrapper, DPM_Solver
 from scipy import ndimage
 from torchvision import transforms
 def standardize(img):
@@ -493,6 +495,7 @@ class GaussianDiffusion:
         model,
         shape,
         img,
+        step=1000,
         org=None,
         noise=None,
         clip_denoised=True,
@@ -512,6 +515,39 @@ class GaussianDiffusion:
         x_noisy = torch.cat((img[:, :-1,  ...], noise), dim=1)  #add noise as the last channel
         img=img.to(device)
 
+        if self.dpm_solver:
+            final = {}
+            noise_schedule = NoiseScheduleVP(schedule='discrete', betas= th.from_numpy(self.betas))
+
+            model_fn = model_wrapper(
+                model,
+                noise_schedule,
+                model_type="noise",  # or "x_start" or "v" or "score"
+                model_kwargs=model_kwargs,
+            )
+
+            dpm_solver = DPM_Solver(model_fn, noise_schedule, algorithm_type="dpmsolver++",
+                            correcting_x0_fn="dynamic_thresholding", img = img[:, :-1,  ...])
+
+            ## Steps in [20, 30] can generate quite good samples.
+            sample, cal = dpm_solver.sample(
+                noise.to(dtype=th.float),
+                steps=step,
+                order=2,
+                skip_type="time_uniform",
+                method="multistep",
+            )
+            sample[:,-1,:,:] = norm(sample[:,-1,:,:])
+            final["sample"] = sample
+            final["cal"] = cal
+
+            cal_out = torch.clamp(final["cal"] + 0.25 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
+        else:
+            print('no dpm-solver')
+
+
+
+
         for sample in self.p_sample_loop_progressive(
             model,
             shape,
@@ -525,9 +561,14 @@ class GaussianDiffusion:
             progress=progress,
         ):
             final = sample
+        
+        if dice_score(final["sample"][:,-1,:,:].unsqueeze(1), final["cal"]) < 0.65:
+            cal_out = torch.clamp(final["cal"] + 0.25 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
+        else:
+            cal_out = torch.clamp(final["cal"] * 0.5 + 0.5 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
+        
+        return final["sample"], x_noisy, img, final["cal"], cal_out
 
-
-        return final["sample"], x_noisy, img
 
     def p_sample_loop_progressive(
         self,
@@ -570,9 +611,9 @@ class GaussianDiffusion:
         else:
            for i in indices:
                 t = th.tensor([i] * shape[0], device=device)
-                if i % 1000 == 0:
-                    print('sampling')
-                    #viz.image(visualize(img.cpu()[0, -1,...]), opts=dict(caption="sample"+ str(i) ))
+                # if i % 1000 == 0:
+                #     print('sampling')
+                #     viz.image(visualize(img.cpu()[0, -1,...]), opts=dict(caption="sample"+ str(i) ))
 
                 with th.no_grad():
                     if img.shape != (1, 4, 352, 352):
