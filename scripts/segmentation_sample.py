@@ -114,10 +114,6 @@ def main():
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
             plt.imsave('./results/val/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
             
-            # s = th.tensor(sample).squeeze().cpu().numpy()
-            # plt.imsave('./results/' + str(name).split('.')[0] + '.png', s, cmap='gist_gray') # save the generated mask
-            # plt.imsave('./results/' + str(name).split('.')[0] + '.png', output, cmap='gist_gray') # save the generated mask
-        
         end.record()
         th.cuda.synchronize()
         print('time for {} sample: {} second'.format(args.num_ensemble, start.elapsed_time(end)/1000))  #time measurement for the generation of 1 sample
