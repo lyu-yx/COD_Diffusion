@@ -89,7 +89,7 @@ def main():
         img, gt, name, _ = val_loader.load_data() # should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
         noise = th.randn_like(img[:, :1, ...])
         img = th.cat((img, noise), dim=1)     # add a noise channel
-        img_size = np.asarray(gt, np.float32).shape
+        
         # logger.log("sampling...")
 
         start = th.cuda.Event(enable_timing=True)
@@ -112,7 +112,7 @@ def main():
             output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
             output = output.squeeze().cpu().numpy()
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
-            plt.imsave('./results/val/' + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
+            plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
             
         end.record()
         th.cuda.synchronize()
@@ -132,6 +132,7 @@ def create_argparser():
         multi_gpu = None, # "0,1,2"
         model_path="./results/savedmodel075000.pt",
         num_ensemble=3      #number of samples in the ensemble
+        save_pth="./results/val/"
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
