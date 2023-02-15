@@ -512,7 +512,7 @@ class GaussianDiffusion:
         if device is None:
             device = next(model.parameters()).device
         assert isinstance(shape, (tuple, list))
-        # img = img.to(device)
+        img = img.to(device)
         noise = th.randn_like(img[:, :1, ...]).to(device)
         x_noisy = torch.cat((img[:, :-1,  ...], noise), dim=1)  # add noise as the last channel ([1, 4, 680, 1024])
         img = img.to(device)

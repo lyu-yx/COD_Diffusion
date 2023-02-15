@@ -67,26 +67,26 @@ def val_single_img(img_pth, gt_pth, itr_num):
         image = th.Tensor(image).cuda()
         gt = th.Tensor(gt).cuda()
 
-        for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
-            model_kwargs = {}
-            # start.record()
-            sample_fn = (
-                diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
-            )
-            sample, _, _ = sample_fn(
-                model,
-                (args.batch_size, 3, args.image_size, args.image_size), image, # image = orgimg + noise
-                clip_denoised=args.clip_denoised,
-                model_kwargs=model_kwargs,
-            )
+        
+        model_kwargs = {}
+        # start.record()
+        sample_fn = (
+            diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
+        )
+        sample, _, _ = sample_fn(
+            model,
+            (args.batch_size, 3, args.image_size, args.image_size), image, # image = orgimg + noise
+            clip_denoised=args.clip_denoised,
+            model_kwargs=model_kwargs,
+        )
 
-            single_img_output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
-            single_img_output = single_img_output.squeeze().cpu().numpy()
-            single_img_output = (single_img_output - single_img_output.min()) / (single_img_output.max() - single_img_output.min() + 1e-8)
-            
+        single_img_output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
+        single_img_output = single_img_output.squeeze().cpu().numpy()
+        single_img_output = (single_img_output - single_img_output.min()) / (single_img_output.max() - single_img_output.min() + 1e-8)
+        
 
-            image = wandb.Image(single_img_output, caption="Input image")
-            wandb.log({"diffusion_result": image})
+        image = wandb.Image(single_img_output, caption="iter")
+        wandb.log({"diffusion_result": image})
 
 if __name__=="__main__":
 
