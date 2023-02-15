@@ -514,7 +514,7 @@ class GaussianDiffusion:
         assert isinstance(shape, (tuple, list))
         img = img.to(device)
         noise = th.randn_like(img[:, :1, ...]).to(device)
-        x_noisy = torch.cat((img[:, :-1,  ...], noise), dim=1)  #add noise as the last channel
+        x_noisy = torch.cat((img[:, :-1,  ...], noise), dim=1)  # add noise as the last channel ([1, 4, 680, 1024])
         img=img.to(device)
 
         if self.dpm_solver:
@@ -595,7 +595,7 @@ class GaussianDiffusion:
             img = th.randn(*shape, device=device)
         indices = list(range(time))[::-1]
 
-        org_img = img[:, :-1, ...]      #original brain MR image
+        org_img = img[:, :-1, ...]      # original RGB image
         if progress:
             # Lazy import so that we don't depend on tqdm.
             from tqdm.auto import tqdm
@@ -604,6 +604,7 @@ class GaussianDiffusion:
 
         else:
            for i in indices:
+                # print(i)
                 t = th.tensor([i] * shape[0], device=device)
                 # if i % 1000 == 0:
                 #     print('sampling')
@@ -611,7 +612,7 @@ class GaussianDiffusion:
 
                 with th.no_grad():
                     if img.shape != (1, 4, 352, 352):
-                        img = torch.cat((org_img,img), dim=1)    #in every step, make sure to concatenate the original image to the sampled segmentation mask
+                        img = torch.cat((org_img, img), dim=1)    #in every step, make sure to concatenate the original image to the sampled segmentation mask
 
                     out = self.p_sample(
                         model,
@@ -959,16 +960,15 @@ class GaussianDiffusion:
 
 
         mask = x_start[:, -1:, ...]
-        res = torch.where(mask > 0, 1, 0)   #merge all tumor classes into one to get a binary segmentation mask
+        res = torch.where(mask > 0, 1, 0)   # binary segmentation mask
+        res_t = self.q_sample(res, t, noise=noise)  # sample from q(x_t | x_0)
 
-        res_t = self.q_sample(res, t, noise=noise)     #add noise to from label
         x_t = x_start.float()
         x_t[:, -1:, ...] = res_t.float()
         terms = {}
 
 
         if self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
-
             model_output = model(x_t, self._scale_timesteps(t), **model_kwargs) # attention Unet
             if self.model_var_type in [
                 ModelVarType.LEARNED,

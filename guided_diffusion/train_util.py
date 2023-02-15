@@ -213,8 +213,8 @@ class TrainLoop:
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
-                # iter_num = int(self.step / self.save_interval)
-                # val_single_img(self.single_visimg_pth, self.single_visgt_pth, iter_num)
+                iter_num = int(self.step / self.save_interval)
+                val_single_img(self.single_visimg_pth, self.single_visgt_pth, iter_num)
                 self.save()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
@@ -302,9 +302,9 @@ class TrainLoop:
             if dist.get_rank() == 0:
                 logger.log(f"saving model {rate}...")
                 if not rate:
-                    filename = f"savedmodel{(self.step+self.resume_step)}.pt"
+                    filename = f"savedmodel{(self.step+self.resume_step):06d}.pt"
                 else:
-                    filename = f"emasavedmodel_{rate}_{(self.step+self.resume_step)}.pt"
+                    filename = f"emasavedmodel_{rate}_{(self.step+self.resume_step):06d}.pt"
                 with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
                     th.save(state_dict, f)
 
@@ -314,7 +314,7 @@ class TrainLoop:
 
         if dist.get_rank() == 0:
             with bf.BlobFile(
-                bf.join(get_blob_logdir(), f"optsavedmodel{(self.step+self.resume_step)}.pt"),
+                bf.join(get_blob_logdir(), f"optsavedmodel{(self.step+self.resume_step):06d}.pt"),
                 "wb",
             ) as f:
                 th.save(self.opt.state_dict(), f)
@@ -382,97 +382,12 @@ def create_argparser():
     add_dict_to_argparser(parser, defaults)
     return parser
 
-def val(test_loader, model, epoch, save_path, writer):
-    """
-    validation function
-    """
-    global best_metric_dict, best_score, best_epoch
-    FM = metrics.Fmeasure()
-    SM = metrics.Smeasure()
-    EM = metrics.Emeasure()
-    metrics_dict = dict()
-    args = create_argparser().parse_args()
-    model.eval()
-    with th.no_grad():
-        model, diffusion = create_model_and_diffusion(
-        **args_to_dict(args, model_and_diffusion_defaults().keys())
-    )
-        for i in range(test_loader.size):
-            image, gt, name, _ = test_loader.load_data()
-            gt = np.asarray(gt, np.float32)
-            image = image.cuda()
-
-            #res = model(image)
-            start = th.cuda.Event(enable_timing=True)
-            end = th.cuda.Event(enable_timing=True)
-
-            for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
-                model_kwargs = {}
-                start.record()
-                sample_fn = (
-                    diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
-                )
-                sample, x_noisy, org = sample_fn(
-                    model,
-                    (args.batch_size, 3, args.image_size, args.image_size), image,
-                    clip_denoised=args.clip_denoised,
-                    model_kwargs=model_kwargs,
-                )
-
-            end.record()
-            th.cuda.synchronize()
-            print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
-
-            sample_result = th.tensor(sample)
-            # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
-            th.save(sample_result, './results/'+str(name)) #save the generated mask
-
-            res = F.upsample(sample_result, size=gt.shape, mode='bilinear', align_corners=False)
-            res = res.sigmoid().data.cpu().numpy().squeeze()
-            res = (res - res.min()) / (res.max() - res.min() + 1e-8)
-            
-            # TODO
-            '''
-            Threshold of predict mask
-            '''
-            FM.step(pred=res, gt=gt)
-            SM.step(pred=res, gt=gt)
-            EM.step(pred=res, gt=gt)
-
-        metrics_dict.update(Sm=SM.get_results()['sm'])
-        metrics_dict.update(mxFm=FM.get_results()['fm']['curve'].max().round(3))
-        metrics_dict.update(mxEm=EM.get_results()['em']['curve'].max().round(3))
-
-        cur_score = metrics_dict['Sm'] + metrics_dict['mxFm'] + metrics_dict['mxEm']
-
-        if epoch == 1:
-            best_score = cur_score
-            print('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
-                epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm']))
-            logging.info('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
-                epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm']))
-        else:
-            if cur_score > best_score:
-                best_metric_dict = metrics_dict
-                best_score = cur_score
-                best_epoch = epoch
-                th.save(model.state_dict(), save_path + 'Net_epoch_best.pth')
-                print('>>> save state_dict successfully! best epoch is {}.'.format(epoch))
-            else:
-                print('>>> not find the best epoch -> continue training ...')
-            print('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})\n[Best Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
-                epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm'],
-                best_epoch, best_metric_dict['mxFm'], best_metric_dict['Sm'], best_metric_dict['mxEm']))
-            logging.info('[Cur Epoch: {}] Metrics (mxFm={}, Sm={}, mxEm={})\n[Best Epoch:{}] Metrics (mxFm={}, Sm={}, mxEm={})'.format(
-                epoch, metrics_dict['mxFm'], metrics_dict['Sm'], metrics_dict['mxEm'],
-                best_epoch, best_metric_dict['mxFm'], best_metric_dict['Sm'], best_metric_dict['mxEm']))
-
 
 def val_single_img(img_pth, gt_pth, itr_num):
     """
     validation function
     """
-    modelpath = "./results/savedmodel" + str(itr_num * 5000) + ".pt"
+    model_path = "./results/" + f"savedmodel{(5000 * itr_num):06d}.pt"
     def create_argparser():
         defaults = dict(
             data_dir="../BUDG/dataset/TestDataset/CAMO/",
@@ -480,7 +395,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
             num_samples=1,
             batch_size=1,
             use_ddim=False,
-            model_path=modelpath,
+            model_path=model_path,
             num_ensemble=3      # number of samples in the ensemble
         )
         defaults.update(model_and_diffusion_defaults())
@@ -500,12 +415,9 @@ def val_single_img(img_pth, gt_pth, itr_num):
         
         gt = Image.open(gt_pth)
         gt = np.asarray(gt, np.float32)
-        
+        img_size = np.asarray(gt, np.float32).shape
         image = image.cuda()
         gt = gt.cuda()
-        #res = model(image)
-        # start = th.cuda.Event(enable_timing=True)
-        # end = th.cuda.Event(enable_timing=True)
 
         for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
             model_kwargs = {}
@@ -520,19 +432,12 @@ def val_single_img(img_pth, gt_pth, itr_num):
                 model_kwargs=model_kwargs,
             )
 
-        # end.record()
-        # th.cuda.synchronize()
-        # print('time for 1 sample', start.elapsed_time(end))  # time measurement for the generation of 1 sample
-
-        sample_result = th.tensor(sample)
+        single_img_output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
+        single_img_output = single_img_output.squeeze().cpu().numpy()
+        single_img_output = (single_img_output - single_img_output.min()) / (single_img_output.max() - single_img_output.min() + 1e-8)
         
-        # viz.image(visualize(sample[0, 0, ...]), opts=dict(caption="sampled output"))
-        # th.save(sample_result, './results/'+str(name)) #save the generated mask
 
-        img_out = F.upsample(sample_result, size=gt.shape, mode='bilinear', align_corners=False)
-        img_out = img_out.sigmoid().data.cpu().numpy().squeeze()
-        img_out = (img_out - img_out.min()) / (img_out.max() - img_out.min() + 1e-8)
-        image = wandb.Image(img_out, caption="Input image")
+        image = wandb.Image(single_img_output, caption="Input image")
         wandb.log({"diffusion_result": image})
         # TODO
         '''
