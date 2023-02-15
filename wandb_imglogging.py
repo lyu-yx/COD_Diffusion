@@ -93,7 +93,7 @@ if __name__=="__main__":
 
     wandb.init(project="Loging img test", name="diffusion_only")
 
-    single_visimg_pth="..\BUDG\dataset\TestDataset\COD10K\Imgs\COD10K-CAM-1-Aquatic-1-BatFish-4.jpg"
-    single_visgt_pth="..\BUDG\dataset\TestDataset\COD10K\GT\COD10K-CAM-1-Aquatic-1-BatFish-4.png"
+    single_visimg_pth="../BUDG/dataset/TestDataset/COD10K/Imgs/COD10K-CAM-1-Aquatic-1-BatFish-4.jpg"
+    single_visgt_pth="../BUDG/dataset/TestDataset/COD10K/GT/COD10K-CAM-1-Aquatic-1-BatFish-4.png"
 
     val_single_img(single_visimg_pth, single_visgt_pth, 0)
