@@ -4,6 +4,7 @@ import blobfile as bf
 import logging
 import numpy as np
 import torch as th
+import matplotlib.pyplot as plt
 import torch.distributed as dist
 import torch.nn.functional as F
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
@@ -35,7 +36,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
             num_samples=1,
             batch_size=1,
             use_ddim=False,
-            multi_gpu='0,1',
+            multi_gpu=None,
             model_path=model_path,
             num_ensemble=3      # number of samples in the ensemble
         )
@@ -74,13 +75,11 @@ def val_single_img(img_pth, gt_pth, itr_num):
         model.eval()
 
         model = th.nn.DataParallel(model,device_ids=[int(id) for id in args.multi_gpu.split(',')])
-        # model.to(device = th.device('cuda'))
         model.to(device = th.device('cuda'))
 
 
 
         image = Image.open(img_pth).resize((352,352))
-        
         image = np.asarray(image, np.float32)
         image = image.transpose(2, 0, 1)
         image = np.expand_dims(image, axis=0)
@@ -114,7 +113,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
         single_img_output = single_img_output.squeeze().cpu().numpy()
         single_img_output = (single_img_output - single_img_output.min()) / (single_img_output.max() - single_img_output.min() + 1e-8)
         
-
+        plt.imsave(args.save_pth + 'singletest.png', single_img_output, cmap='gist_gray') # save the generated mask
         image = wandb.Image(single_img_output, caption="iter")
         wandb.log({"diffusion_result": image})
 
