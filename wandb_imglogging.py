@@ -11,6 +11,7 @@ from torch.optim import AdamW
 from torchvision.transforms import ToPILImage
 from PIL import Image
 from tqdm import tqdm
+from guided_diffusion import dist_util
 
 from guided_diffusion.script_util import (
     NUM_CLASSES,
@@ -26,7 +27,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
     validation function
     """
     # model_path = "./results/" + f"savedmodel{(5000 * itr_num):06d}.pt"
-    model_path = "/.results/emasavedmodel_0.9999_000000.pt"
+    model_path = "/.results/savedmodel110000.pt"
     def create_argparser():
         defaults = dict(
             data_dir="../BUDG/dataset/TestDataset/CAMO/",
@@ -48,6 +49,29 @@ def val_single_img(img_pth, gt_pth, itr_num):
         model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
+
+      
+        state_dict = dist_util.load_state_dict(args.model_path, map_location="cpu")
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            # name = k[7:] # remove `module.`
+            if 'module.' in k:
+                new_state_dict[k[7:]] = v
+                # load params
+            else:
+                new_state_dict = state_dict
+
+        model.load_state_dict(new_state_dict)
+        model.to(dist_util.dev())
+
+        if args.use_fp16:
+            model.convert_to_fp16()
+        model.eval()
+
+
+
+
 
         image = Image.open(img_pth).resize((352,352))
         
