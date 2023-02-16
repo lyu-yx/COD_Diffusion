@@ -35,6 +35,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
             num_samples=1,
             batch_size=1,
             use_ddim=False,
+            multi_gpu='0,1'
             model_path=model_path,
             num_ensemble=3      # number of samples in the ensemble
         )
