@@ -113,7 +113,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
         single_img_output = single_img_output.squeeze().cpu().numpy()
         single_img_output = (single_img_output - single_img_output.min()) / (single_img_output.max() - single_img_output.min() + 1e-8)
         
-        plt.imsave(args.save_pth + 'singletest.png', single_img_output, cmap='gist_gray') # save the generated mask
+        # plt.imsave(args.save_pth + 'singletest.png', single_img_output, cmap='gist_gray') # save the generated mask
         image = wandb.Image(single_img_output, caption="iter")
         wandb.log({"diffusion_result": image})
 
