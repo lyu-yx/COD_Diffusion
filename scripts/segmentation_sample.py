@@ -62,7 +62,6 @@ def main():
     #     batch_size=1,
     #     shuffle=False)
     # data = iter(datal)
-    all_images = []
 
 
     state_dict = dist_util.load_state_dict(args.model_path, map_location="cpu")
@@ -77,7 +76,9 @@ def main():
             new_state_dict = state_dict
 
     model.load_state_dict(new_state_dict)
-    model.to(dist_util.dev())
+    model = th.nn.DataParallel(model, device_ids=[int(id) for id in args.multi_gpu.split(',')])
+    # model.to(dist_util.dev())
+    model.to(device = th.device('cuda'))
 
     if args.use_fp16:
         model.convert_to_fp16()

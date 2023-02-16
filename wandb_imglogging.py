@@ -65,7 +65,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
                 new_state_dict = state_dict
 
         model.load_state_dict(new_state_dict)
-        model.to(dist_util.dev())
+        # model.to(dist_util.dev())
 
         
 
