@@ -116,6 +116,7 @@ def main():
             output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
             output = output.squeeze().cpu().numpy()
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
+            output = sitk.Cast(output, sitk.sitkUInt8)
             plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
             
             sample_arrays.append(output)
