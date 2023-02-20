@@ -15,6 +15,7 @@ import random
 sys.path.append(".")
 import numpy as np
 import time
+import SimpleITK as sitk
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import torch as th
@@ -99,7 +100,7 @@ def main():
         end = th.cuda.Event(enable_timing=True)
         
         start.record()
-        
+        sample_arrays = []
         for i in range(args.num_ensemble):  # this is for the generation of an ensemble of n masks.
             model_kwargs = {}
             sample_fn = (
@@ -117,10 +118,15 @@ def main():
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
             plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
             
-            sample_array = output if i == 0 else np.concatenate((sample_array, output), 0) # concat
-              
-        staple_result = staple.STAPLE(sample_array, convergence_threshold=0)
-        result = staple_result.run()
+            sample_arrays.append()
+            # sample_array = output if i == 0 else np.concatenate((sample_array, output), 0) # concat
+        
+        images = [sitk.GetImageFromArray(array) for array in sample_arrays]
+        staple_result = sitk.STAPLE(images)
+        result = sitk.GetArrayFromImage(staple_result)      
+        # staple_result = staple.STAPLE(sample_arrays, convergence_threshold=0)
+        # result = staple_result.run()
+        result = (result - result.min()) / (result.max() - result.min() + 1e-8)
         plt.imsave(args.save_pth + str(name).split('.')[0] + '_staple.png', result, cmap='gist_gray') # save the generated mask
         
         end.record()
