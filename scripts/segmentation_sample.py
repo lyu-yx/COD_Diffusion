@@ -23,6 +23,8 @@ import torch.nn.functional as F
 from guided_diffusion import dist_util, logger
 from guided_diffusion.dataset import test_dataset as EvalDataset
 # from guided_diffusion.bratsloader import BRATSDataset
+import guided_diffusion.staple as staple
+
 from guided_diffusion.script_util import (
     NUM_CLASSES,
     model_and_diffusion_defaults,
@@ -77,8 +79,8 @@ def main():
 
     model.load_state_dict(new_state_dict)
     model = th.nn.DataParallel(model, device_ids=[int(id) for id in args.multi_gpu.split(',')])
-    # model.to(dist_util.dev())
-    model.to(device = th.device('cuda'))
+    model.to(dist_util.dev())
+    # model.to(device = th.device('cuda'))
 
     if args.use_fp16:
         model.convert_to_fp16()
@@ -97,8 +99,8 @@ def main():
         end = th.cuda.Event(enable_timing=True)
         
         start.record()
-
-        for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
+        
+        for i in range(args.num_ensemble):  # this is for the generation of an ensemble of n masks.
             model_kwargs = {}
             sample_fn = (
                 diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
@@ -115,6 +117,12 @@ def main():
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
             plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
             
+            sample_array = output if i == 0 else th.cat((sample_array, output), 0) # concat
+              
+        staple_result = staple.STAPLE(sample_array, convergence_threshold=0)
+        result = staple_result.run()
+        plt.imsave(args.save_pth + str(name).split('.')[0] + '_staple.png', result, cmap='gist_gray') # save the generated mask
+        
         end.record()
         th.cuda.synchronize()
         print('time for {} sample: {} second'.format(args.num_ensemble, start.elapsed_time(end)/1000))  #time measurement for the generation of 1 sample
