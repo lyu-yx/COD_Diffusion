@@ -117,7 +117,7 @@ def main():
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
             plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
             
-            sample_array = output if i == 0 else th.cat((sample_array, output), 0) # concat
+            sample_array = output if i == 0 else np.concatenate((sample_array, output), 0) # concat
               
         staple_result = staple.STAPLE(sample_array, convergence_threshold=0)
         result = staple_result.run()
