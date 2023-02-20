@@ -38,7 +38,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
             use_ddim=False,
             multi_gpu=None,
             model_path=model_path,
-            num_ensemble=3      # number of samples in the ensemble
+            num_ensemble=itr_num      # number of samples in the ensemble
         )
         defaults.update(model_and_diffusion_defaults())
         parser = argparse.ArgumentParser()
@@ -96,26 +96,26 @@ def val_single_img(img_pth, gt_pth, itr_num):
         image = th.Tensor(image).cuda()
         gt = th.Tensor(gt).cuda()
 
-        
-        model_kwargs = {}
-        # start.record()
-        sample_fn = (
-            diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
-        )
-        sample, _, _ = sample_fn(
-            model,
-            (args.batch_size, 3, args.image_size, args.image_size), image, # image = orgimg + noise
-            clip_denoised=args.clip_denoised,
-            model_kwargs=model_kwargs,
-        )
+        for i in range(args.num_ensemble):  #this is for the generation of an ensemble of n masks.
+            model_kwargs = {}
+            # start.record()
+            sample_fn = (
+                diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
+            )
+            sample, _, _ = sample_fn(
+                model,
+                (args.batch_size, 3, args.image_size, args.image_size), image, # image = orgimg + noise
+                clip_denoised=args.clip_denoised,
+                model_kwargs=model_kwargs,
+            )
 
-        single_img_output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
-        single_img_output = single_img_output.squeeze().cpu().numpy()
-        single_img_output = (single_img_output - single_img_output.min()) / (single_img_output.max() - single_img_output.min() + 1e-8)
-        
-        # plt.imsave(args.save_pth + 'singletest.png', single_img_output, cmap='gist_gray') # save the generated mask
-        image = wandb.Image(single_img_output, caption="iter")
-        wandb.log({"diffusion_result": image})
+            single_img_output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
+            single_img_output = single_img_output.squeeze().cpu().numpy()
+            single_img_output = (single_img_output - single_img_output.min()) / (single_img_output.max() - single_img_output.min() + 1e-8)
+            
+            # plt.imsave(args.save_pth + 'singletest.png', single_img_output, cmap='gist_gray') # save the generated mask
+            image = wandb.Image(single_img_output, caption="iter")
+            wandb.log({"diffusion_result": image})
 
 if __name__=="__main__":
 
@@ -125,4 +125,4 @@ if __name__=="__main__":
     single_visimg_pth="../BUDG/dataset/TestDataset/COD10K/Imgs/COD10K-CAM-1-Aquatic-1-BatFish-4.jpg"
     single_visgt_pth="../BUDG/dataset/TestDataset/COD10K/GT/COD10K-CAM-1-Aquatic-1-BatFish-4.png"
 
-    val_single_img(single_visimg_pth, single_visgt_pth, 0)
+    val_single_img(single_visimg_pth, single_visgt_pth, 2)

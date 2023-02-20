@@ -42,18 +42,18 @@ class no_op(object):
     def __exit__(self, *args):
         pass
 
-def staple(a):
-    # a: n,c,h,w detach tensor
-    mvres = mv(a)
+def staple(samples):
+    # samples: n,c,h,w detach tensor
+    mvres = samples_mean(samples)
     gap = 0.4
     if gap > 0.02:
-        for i, s in enumerate(a):
+        for i, s in enumerate(samples): # concat samples mean times samples 
             r = s * mvres
-            res = r if i == 0 else torch.cat((res,r),0)
-        nres = mv(res)
+            res = r if i == 0 else torch.cat((res, r), 0)
+        nres = samples_mean(res)
         gap = torch.mean(torch.abs(mvres - nres))
         mvres = nres
-        a = res
+        samples = res
     return mvres
 
 def allone(disc,cup):
@@ -68,11 +68,11 @@ def dice_score(pred, targs):
     pred = (pred>0).float()
     return 2. * (pred*targs).sum() / (pred+targs).sum()
 
-def mv(a):
+def samples_mean(samples):
     # res = Image.fromarray(np.uint8(img_list[0] / 2 + img_list[1] / 2 ))
     # res.show()
-    b = a.size(0)
-    return torch.sum(a, 0, keepdim=True) / b
+    batch = samples.size(0)
+    return torch.sum(samples, 0, keepdim=True) / batch
 
 def tensor_to_img_array(tensor):
     image = tensor.cpu().detach().numpy()
