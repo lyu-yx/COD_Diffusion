@@ -97,7 +97,7 @@ def create_argparser():
         train_size=352,
         test_size=352,
         schedule_sampler="uniform",
-        lr=1e-4,
+        lr=5e-5,
         weight_decay=0.0,
         lr_anneal_steps=0,
         batch_size=1,
@@ -105,11 +105,11 @@ def create_argparser():
         ema_rate="0.9999",  # comma-separated list of EMA values
         log_interval=100,
         save_interval=5000,
-        resume_checkpoint='', # "./results/pretrainedmodel.pt",
+        resume_checkpoint="./results/savedmodel115000.pt",  # "./results/pretrainedmodel.pt",
         use_fp16=False,
         fp16_scale_growth=1e-3,
         gpu_dev = "0",
-        multi_gpu = None, # "0,1,2"
+        multi_gpu = "0,1,2,3", # "0,1,2"
         single_visimg_pth="..\BUDG\dataset\TestDataset\COD10K\Imgs\COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",
         single_visgt_pth="..\BUDG\dataset\TestDataset\COD10K\GT\COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",
     )
