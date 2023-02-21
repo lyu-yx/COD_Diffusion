@@ -399,7 +399,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
             use_ddim=False,
             multi_gpu=None,
             model_path=model_path,
-            num_ensemble=itr_num      # number of samples in the ensemble
+            num_ensemble=3      # number of samples in the ensemble
         )
         defaults.update(model_and_diffusion_defaults())
         parser = argparse.ArgumentParser()
