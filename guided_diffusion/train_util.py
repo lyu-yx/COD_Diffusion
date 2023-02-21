@@ -14,6 +14,7 @@ from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 from torchvision.transforms import ToPILImage
 from PIL import Image
+import SimpleITK as sitk
 
 from . import metrics
 from . import dist_util, logger
@@ -388,6 +389,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
     validation function
     """
     model_path = "./results/" + f"savedmodel{(5000 * itr_num):06d}.pt"
+    # model_path = "./results/savedmodel115000.pt"
     def create_argparser():
         defaults = dict(
             data_dir="../BUDG/dataset/TestDataset/CAMO/",
@@ -395,8 +397,9 @@ def val_single_img(img_pth, gt_pth, itr_num):
             num_samples=1,
             batch_size=1,
             use_ddim=False,
+            multi_gpu=None,
             model_path=model_path,
-            num_ensemble=3      # number of samples in the ensemble
+            num_ensemble=itr_num      # number of samples in the ensemble
         )
         defaults.update(model_and_diffusion_defaults())
         parser = argparse.ArgumentParser()
@@ -410,16 +413,48 @@ def val_single_img(img_pth, gt_pth, itr_num):
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
 
-        image = Image.open(img_pth)
-        image = np.asarray(image, np.float32)
-        
-        gt = Image.open(gt_pth)
-        gt = np.asarray(gt, np.float32)
-        img_size = np.asarray(gt, np.float32).shape
-        image = image.cuda()
-        gt = gt.cuda()
+        state_dict = dist_util.load_state_dict(args.model_path, map_location="cpu")
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            # name = k[7:] # remove `module.`
+            if 'module.' in k:
+                new_state_dict[k[7:]] = v
+                # load params
+            else:
+                new_state_dict = state_dict
 
-        for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
+        model.load_state_dict(new_state_dict)
+        # model.to(dist_util.dev())
+
+        if args.use_fp16:
+            model.convert_to_fp16()
+        model.eval()
+
+        model = th.nn.DataParallel(model,device_ids=[int(id) for id in args.multi_gpu.split(',')])
+        model.to(device = th.device('cuda'))
+
+
+
+        image = Image.open(img_pth).resize((352,352))
+        image = np.asarray(image, np.float32)
+        image = image.transpose(2, 0, 1)
+        image = np.expand_dims(image, axis=0)
+        
+        gt = Image.open(gt_pth).resize((352,352))
+        gt = np.asarray(gt, np.float32)
+        gt = np.expand_dims(gt, axis=0)
+        gt = np.expand_dims(gt, axis=0)
+        
+        img_size = np.asarray(gt, np.float32).shape[-2:]
+        image = np.concatenate((image, gt), axis=1) 
+
+        image = th.Tensor(image).cuda()
+        gt = th.Tensor(gt).cuda()
+        sample_arrays = []
+        for _ in range(args.num_ensemble):  #this is for the generation of an ensemble of n masks.
+            threshold = 0.5
+            foregroundValue = 1.0
             model_kwargs = {}
             # start.record()
             sample_fn = (
@@ -427,20 +462,25 @@ def val_single_img(img_pth, gt_pth, itr_num):
             )
             sample, _, _ = sample_fn(
                 model,
-                (args.batch_size, 3, args.image_size, args.image_size), image,
+                (args.batch_size, 3, args.image_size, args.image_size), image, # image = orgimg + noise
                 clip_denoised=args.clip_denoised,
                 model_kwargs=model_kwargs,
             )
-
-        single_img_output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
-        single_img_output = single_img_output.squeeze().cpu().numpy()
-        single_img_output = (single_img_output - single_img_output.min()) / (single_img_output.max() - single_img_output.min() + 1e-8)
+            
+            output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
+            output = output.squeeze().cpu().numpy()
+            output = (output - output.min()) / (output.max() - output.min() + 1e-8)
+            output[output <= threshold] = 0
+            output[output > threshold] = 1
+            # plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
+            sample_arrays.append(output)
+            
         
-
-        image = wandb.Image(single_img_output, caption="Input image")
-        wandb.log({"diffusion_result": image})
-        # TODO
-        '''
-        Threshold of predict mask
-        '''
+        images = [sitk.GetImageFromArray(array) for array in sample_arrays]
+        staple_result = sitk.STAPLE(images, foregroundValue)
+        staple_result = sitk.GetArrayFromImage(staple_result) 
+        
+        result = (result - result.min()) / (result.max() - result.min() + 1e-8)
+        image = wandb.Image(result, caption="iter")
+        wandb.log({str(5000 * itr_num): image})
        

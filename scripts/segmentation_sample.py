@@ -95,12 +95,12 @@ def main():
         img = th.cat((img, noise), dim=1)     # add a noise channel
         img_size = np.asarray(gt, np.float32).shape
         # logger.log("sampling...")
-
-        start = th.cuda.Event(enable_timing=True)
-        end = th.cuda.Event(enable_timing=True)
-        
-        start.record()
+        # start = th.cuda.Event(enable_timing=True)
+        # end = th.cuda.Event(enable_timing=True)
+        # start.record()
         sample_arrays = []
+        threshold = 0.5
+        foregroundValue = 1.0
         for i in range(args.num_ensemble):  # this is for the generation of an ensemble of n masks.
             model_kwargs = {}
             sample_fn = (
@@ -108,31 +108,29 @@ def main():
             )
             sample, x_noisy, org = sample_fn(
                 model,
-                (args.batch_size, 3, args.image_size, args.image_size), img,
+                (args.batch_size, 3, args.image_size, args.image_size), img, 
+                step=50,
                 clip_denoised=args.clip_denoised,
                 model_kwargs=model_kwargs,
             )
-
             output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
             output = output.squeeze().cpu().numpy()
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
-            output = sitk.Cast(output, sitk.sitkUInt8)
-            plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
-            
+            output[output <= threshold] = 0
+            output[output > threshold] = 1
             sample_arrays.append(output)
-            # sample_array = output if i == 0 else np.concatenate((sample_array, output), 0) # concat
+            # plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
         
         images = [sitk.GetImageFromArray(array) for array in sample_arrays]
-        staple_result = sitk.STAPLE(images)
-        result = sitk.GetArrayFromImage(staple_result)      
-        # staple_result = staple.STAPLE(sample_arrays, convergence_threshold=0)
-        # result = staple_result.run()
-        result = (result - result.min()) / (result.max() - result.min() + 1e-8)
-        plt.imsave(args.save_pth + str(name).split('.')[0] + '_staple.png', result, cmap='gist_gray') # save the generated mask
+        staple_result = sitk.STAPLE(images, foregroundValue)
+        staple_result = sitk.GetArrayFromImage(staple_result) 
         
-        end.record()
-        th.cuda.synchronize()
-        print('time for {} sample: {} second'.format(args.num_ensemble, start.elapsed_time(end)/1000))  #time measurement for the generation of 1 sample
+        result = (result - result.min()) / (result.max() - result.min() + 1e-8)
+        plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', result, cmap='gist_gray') # save the generated mask
+        
+        # end.record()
+        # th.cuda.synchronize()
+        # print('time for {} sample: {} second'.format(args.num_ensemble, start.elapsed_time(end)/1000))  #time measurement for the generation of 1 sample
 
 def create_argparser():
     defaults = dict(
