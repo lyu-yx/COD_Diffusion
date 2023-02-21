@@ -475,7 +475,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
             # plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
             sample_arrays.append(output)
             
-        sitk.Cast(sample_arrays, sitk.sitkUInt8)
+        sample_arrays = sitk.Cast(sample_arrays, sitk.sitkUInt8)
         images = [sitk.GetImageFromArray(array) for array in sample_arrays]
         staple_result = sitk.STAPLE(images, foregroundValue)
         staple_result = sitk.GetArrayFromImage(staple_result) 
