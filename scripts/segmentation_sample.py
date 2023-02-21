@@ -118,15 +118,16 @@ def main():
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
             output[output <= threshold] = 0
             output[output > threshold] = 1
+            output = sitk.Cast(sitk.GetImageFromArray(output), sitk.sitkUInt8)
             sample_arrays.append(output)
             # plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
         
-        sample_arrays = sitk.Cast(sample_arrays, sitk.sitkUInt8)
-        images = [sitk.GetImageFromArray(array) for array in sample_arrays]
+        
+        images = [array for array in sample_arrays]
         staple_result = sitk.STAPLE(images, foregroundValue)
         staple_result = sitk.GetArrayFromImage(staple_result) 
         
-        result = (result - result.min()) / (result.max() - result.min() + 1e-8)
+        result = (staple_result - staple_result.min()) / (staple_result.max() - staple_result.min() + 1e-8)
         plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', result, cmap='gist_gray') # save the generated mask
         
         # end.record()
