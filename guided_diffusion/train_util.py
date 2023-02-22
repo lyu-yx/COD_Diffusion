@@ -149,6 +149,7 @@ class TrainLoop:
         if resume_checkpoint:
             print('resume model')
             self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
+            self.step = self.resume_step
             if dist.get_rank() == 0:
                 logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
                 self.model.load_state_dict(
@@ -188,14 +189,13 @@ class TrainLoop:
             self.opt.load_state_dict(state_dict)
 
     def run_loop(self):
-        i = 0
+
         data_iter = iter(self.data_loader)
 
         while (
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
         ):
-
 
             try:
                 # batch for RGB; cond for label
@@ -209,8 +209,6 @@ class TrainLoop:
 
             self.run_step(batch, cond)
 
-            i += 1
-          
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
@@ -388,7 +386,7 @@ def val_single_img(img_pth, gt_pth, itr_num):
     """
     validation function
     """
-    model_path = "./results/" + f"savedmodel{(5000 * itr_num):06d}.pt"
+    model_path = "./results/" + f"savedmodel{(5000 * itr_num)}.pt"
     # model_path = "./results/savedmodel115000.pt"
     def create_argparser():
         defaults = dict(
