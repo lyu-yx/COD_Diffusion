@@ -212,8 +212,8 @@ class TrainLoop:
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
-                iter_num = int(self.step / self.save_interval)
-                val_single_img(self.single_visimg_pth, self.single_visgt_pth, iter_num)
+                # iter_num = int(self.step / self.save_interval)
+                # val_single_img(self.single_visimg_pth, self.single_visgt_pth, iter_num)
                 self.save()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
