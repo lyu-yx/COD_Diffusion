@@ -366,20 +366,6 @@ def log_loss_dict(diffusion, ts, losses):
             quartile = int(4 * sub_t / diffusion.num_timesteps)
             logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
     
-def create_argparser():
-    defaults = dict(
-        data_dir="../BUDG/dataset/TestDataset/CAMO/",
-        clip_denoised=True,
-        num_samples=1,
-        batch_size=1,
-        use_ddim=False,
-        model_path="",
-        num_ensemble=3      # number of samples in the ensemble
-    )
-    defaults.update(model_and_diffusion_defaults())
-    parser = argparse.ArgumentParser()
-    add_dict_to_argparser(parser, defaults)
-    return parser
 
 
 def val_single_img(img_pth, gt_pth, itr_num):
@@ -445,7 +431,8 @@ def val_single_img(img_pth, gt_pth, itr_num):
         gt = np.expand_dims(gt, axis=0)
         
         img_size = np.asarray(gt, np.float32).shape[-2:]
-        image = np.concatenate((image, gt), axis=1) 
+        noise = th.randn_like(th.Tensor(image)[:, :1, ...])
+        image = np.concatenate((image, noise), axis=1) 
 
         image = th.Tensor(image).cuda()
         gt = th.Tensor(gt).cuda()
