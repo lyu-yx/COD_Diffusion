@@ -149,7 +149,7 @@ class TrainLoop:
         if resume_checkpoint:
             print('resume model')
             self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
-            self.step = self.resume_step
+            # self.step = self.resume_step
             if dist.get_rank() == 0:
                 logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
                 self.model.load_state_dict(

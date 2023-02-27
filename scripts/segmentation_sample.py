@@ -109,7 +109,7 @@ def main():
             sample, x_noisy, org = sample_fn(
                 model,
                 (args.batch_size, 3, args.image_size, args.image_size), img, 
-                step=50,
+                step=100,
                 clip_denoised=args.clip_denoised,
                 model_kwargs=model_kwargs,
             )
@@ -147,7 +147,7 @@ def create_argparser():
         gpu_dev = "0",
         multi_gpu = None, # "0,1,2"
         model_path="./results/savedmodel075000.pt",
-        num_ensemble=3,      #number of samples in the ensemble
+        num_ensemble=5,      #number of samples in the ensemble
         save_pth="./results/val/"
     )
     defaults.update(model_and_diffusion_defaults())
