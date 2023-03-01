@@ -15,6 +15,7 @@ from .nn import (
     timestep_embedding,
 )
 
+from .pvtv2 import pvt_v2_b2
 
 class AttentionPool2d(nn.Module):
     """
@@ -389,7 +390,6 @@ class QKVAttention(nn.Module):
     def count_flops(model, _x, y):
         return count_flops_attn(model, _x, y)
 
-
 class UNetModel(nn.Module):
     """
     The full UNet model with attention and timestep embedding.
@@ -425,7 +425,7 @@ class UNetModel(nn.Module):
         self,
         image_size,
         in_channels,
-        model_channels,
+        model_channels,  # 128
         out_channels,
         num_res_blocks,
         attention_resolutions,
@@ -463,8 +463,20 @@ class UNetModel(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
+        self.edge_bb = pvt_v2_b2()
+        
+        
+        # for edge feature extraction using PVT
+        path = './results/pvt_v2_b2.pth'
+        save_model = th.load(path)
+        model_dict = self.edge_bb.state_dict()
+        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.edge_bb.load_state_dict(model_dict)
 
-        time_embed_dim = model_channels * 4
+
+        # for noise feature extraction using Unet
+        time_embed_dim = model_channels * 4  # 128 * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
             nn.SiLU(),
@@ -500,6 +512,7 @@ class UNetModel(nn.Module):
                 ]
                 ch = mult * model_channels
                 if ds in attention_resolutions:
+                    # print(f'in encoder curr ds {ds}, level{level}, curr attention res{attention_resolutions}')
                     layers.append(
                         AttentionBlock(
                             ch,
@@ -527,8 +540,8 @@ class UNetModel(nn.Module):
                             down=True,
                         )
                         if resblock_updown
-                        else Downsample(
-                            ch, conv_resample, dims=dims, out_channels=out_ch
+                        else Downsample( 
+                            ch, conv_resample, dims=dims, out_channels=out_ch # spatial res/2
                         )
                     )
                 )
@@ -581,6 +594,7 @@ class UNetModel(nn.Module):
                 ]
                 ch = model_channels * mult
                 if ds in attention_resolutions:
+                    # print(f'in decoder curr ds {ds}, level{level}, curr attention res{attention_resolutions}')
                     layers.append(
                         AttentionBlock(
                             ch,
@@ -652,6 +666,25 @@ class UNetModel(nn.Module):
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
 
+        # for edge feature extraction 
+        in_channel_list = [128, 320, 512]
+        channel = 32
+        pvt = self.edge_bb(x[:, :-1, ...])
+        fb1 = pvt[0]
+        fb2 = pvt[1]
+        fb3 = pvt[2]
+        fb4 = pvt[3]
+
+        self.dr1 = DimensionalReduction(in_channel=in_channel_list[0], out_channel=channel)
+        self.dr2 = DimensionalReduction(in_channel=in_channel_list[1], out_channel=channel)
+        self.dr3 = DimensionalReduction(in_channel=in_channel_list[2], out_channel=channel)
+
+        xr3 = self.dr1(fb2)
+        xr4 = self.dr2(fb3)
+        xr5 = self.dr3(fb4)
+
+        edge = self.eem(fb2, fb4)
+
         h = x.type(self.dtype)
         for module in self.input_blocks:
             h = module(h, emb)
@@ -662,6 +695,120 @@ class UNetModel(nn.Module):
             h = module(h, emb)
         h = h.type(x.dtype)
         return self.out(h)
+
+
+
+class ConvBR(nn.Module):
+    def __init__(self, in_channel, out_channel, kernel_size, stride=1, padding=0, dilation=1):
+        super(ConvBR, self).__init__()
+        self.conv = nn.Conv2d(in_channel, out_channel,
+                              kernel_size=kernel_size, stride=stride,
+                              padding=padding, dilation=dilation, bias=False)
+        self.bn = nn.BatchNorm2d(out_channel)
+        self.relu = nn.ReLU(inplace=True)
+        self.init_weight()
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        return x
+
+    def init_weight(self):
+        for ly in self.children():
+            if isinstance(ly, nn.Conv2d):
+                nn.init.kaiming_normal_(ly.weight, a=1)
+                if not ly.bias is None: nn.init.constant_(ly.bias, 0)
+'''a –> the negative slope of the rectifier used after this layer (only used with 'leaky_relu')
+   mode –> either 'fan_in' (default) or 'fan_out'. 
+Choosing 'fan_in' preserves the magnitude of the variance of the weights in the forward pass. 
+Choosing 'fan_out' preserves the magnitudes in the backwards pass.
+'''
+
+class DimensionalReduction(nn.Module):
+    def __init__(self, in_channel, out_channel):
+        super(DimensionalReduction, self).__init__()
+        self.reduce = nn.Sequential(
+            ConvBR(in_channel, out_channel, 3, padding=1),
+            ConvBR(out_channel, out_channel, 3, padding=1)
+        )
+
+    def forward(self, x):
+        return self.reduce(x)
+
+
+class DimensionalExtention(nn.Module):
+    def __init__(self, in_channel, out_channel):
+        super(DimensionalExtention, self).__init__()
+        self.extend = nn.Sequential(
+            ConvBR(in_channel, out_channel, 3, padding=1),
+            nn.Conv2d(in_channel, out_channel, 1),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.extend(x)
+
+class EdgeEstimationModule(nn.Module):
+    def __init__(self, in_channel):
+        super(EdgeEstimationModule, self).__init__()
+        self.reduce = DimensionalReduction(in_channel, in_channel / 2)  # [128, 320, 512]
+        
+        self.cbr1 = nn.Sequential(ConvBR(in_channel / 2, 64, 3, padding=1))
+        self.cbr2 = nn.Sequential(ConvBR(64, 32, 3, padding=1))
+                                   
+        self.out_conv = nn.Conv2d(32 + in_channel / 2, 1, 1)
+
+    def forward(self, edge_bb_feature):
+        size = edge_bb_feature.size()[2:]
+        edge_bb_feature = self.reduce(edge_bb_feature)
+        edge_bb_feature = F.interpolate(edge_bb_feature, size, mode='bilinear', align_corners=False)
+        cat_feature = self.cbr1(edge_bb_feature)
+        out = self.cbr2(cat_feature)
+        out = th.cat((out, cat_feature), dim=1)
+        out = self.out_conv(out)
+        return out
+
+
+class PriorGuidedFeatureRefinement(nn.Module):
+    def __init__(self, in_channel):
+        super(PriorGuidedFeatureRefinement, self).__init__()
+        self.edge_deduce_module = EdgeEstimationModule(in_channel)
+        self.de = DimensionalExtention(1, in_channel)
+        
+        
+    def forward(self, edge_bb_feature):
+        edge_out = self.edge_deduce_module(edge_bb_feature)
+        feature_out = self.de(edge_out)
+        feature_out = th.mul(edge_bb_feature,  feature_out)
+
+        return feature_out, edge_out
+
+
+
+class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
+    def __init__(self, cat_channel, out_channel, N=[4, 8, 16]):
+        super(CrossDomainFeatureFusion, self).__init__()
+        # grouping method is the only difference here
+        
+        self.g_conv1 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[0], bias=False)
+        self.g_conv2 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[1], bias=False)
+        self.g_conv3 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[2], bias=False)
+        self.cbr1 = ConvBR(out_channel, out_channel)
+        self.cbr2 = ConvBR(out_channel, out_channel)
+
+
+    def forward(self, noise_f, edge_f):
+        x = th.cat((noise_f, edge_f), dim = 1)
+        x = self.g_conv1(x) + self.g_conv2(x) + self.g_conv3(x) + x
+        x_res = x
+
+        x = self.cbr1(x)
+        x = self.cbr2(x)
+        x = x_res + x
+        
+        return x
+
 
 
 class SuperResModel(UNetModel):

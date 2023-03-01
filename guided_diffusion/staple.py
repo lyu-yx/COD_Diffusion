@@ -163,6 +163,7 @@ class STAPLE:
                 success = True
                 break
             elif self.num_iterations == self.max_num_iterations:
+                return self.output.reshape(one_shape)
                 success = False
                 break
             if self.verbose:
