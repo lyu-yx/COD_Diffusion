@@ -1178,9 +1178,16 @@ class IntegratedUNetModel(nn.Module):
 
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         h = self.cdff4(pgfr4_out, h)
+        
 
-        h = self.out_layer5(h, emb)
-        h = self.out_layer6(h, emb)
+        for module in self.out_layer5:
+            h = self.out_layer5(h, emb)
+            h = module(h, emb)
+
+        for module in self.out_layer6:
+            h = self.out_layer6(h, emb)
+            h = module(h, emb)
+        
         out = self.out(h)
         
         return out, edge1, edge2, edge3, edge4
