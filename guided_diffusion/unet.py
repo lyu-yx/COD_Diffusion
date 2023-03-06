@@ -766,10 +766,14 @@ class EdgeDeducingModule(nn.Module):
     def forward(self, edge_bb_feature):
         size = edge_bb_feature.size()[2:]
         edge_bb_feature = self.reduce(edge_bb_feature)
-        edge_bb_feature = F.interpolate(edge_bb_feature, size, mode='bilinear', align_corners=False)
+        # edge_bb_feature = F.interpolate(edge_bb_feature, size, mode='bilinear', align_corners=False)
+        print('reduced edge_bb_feature', edge_bb_feature.size())
         cat_feature = self.cbr1(edge_bb_feature)
+        print('cbr1', cat_feature.size())
         out = self.cbr2(cat_feature)
+        print('cbr2', out.size())
         out = th.cat((out, cat_feature), dim=1)
+        print('cat feature size', out.size())
         out = self.out_conv(out)
         return out
 
