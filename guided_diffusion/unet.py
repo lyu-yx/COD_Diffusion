@@ -799,9 +799,10 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
         super(CrossDomainFeatureFusion, self).__init__()
         # grouping method is the only difference here
         
-        self.g_conv1 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[0], bias=False)
-        self.g_conv2 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[1], bias=False)
-        self.g_conv3 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[2], bias=False)
+        self.g_conv1 = nn.Conv2d(cat_channel, cat_channel, kernel_size=1, groups=N[0], bias=False)
+        self.g_conv2 = nn.Conv2d(cat_channel, cat_channel, kernel_size=1, groups=N[1], bias=False)
+        self.g_conv3 = nn.Conv2d(cat_channel, cat_channel, kernel_size=1, groups=N[2], bias=False)
+        self.dr = DimensionalReduction(cat_channel, out_channel)
         self.cbr1 = ConvBR(out_channel, out_channel, 3, padding=1)
         self.cbr2 = ConvBR(out_channel, out_channel, 3, padding=1)
         self.upsample = Upsample(out_channel, False, dims=2)
@@ -810,7 +811,7 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
     def forward(self, noise_f, edge_f):
         x = th.cat([noise_f, edge_f], dim=1)
         x = self.g_conv1(x) + self.g_conv2(x) + self.g_conv3(x) + x
-        x_res = x
+        x_res = self.dr(x)
 
         x = self.cbr1(x)
         x = self.cbr2(x)
