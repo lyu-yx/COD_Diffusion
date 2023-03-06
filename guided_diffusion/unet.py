@@ -746,7 +746,7 @@ class DimensionalExtention(nn.Module):
         super(DimensionalExtention, self).__init__()
         self.extend = nn.Sequential(
             ConvBR(in_channel, out_channel, 3, padding=1),
-            nn.Conv2d(in_channel, out_channel, 1),
+            nn.Conv2d(out_channel, out_channel, 1),
             nn.ReLU(inplace=True)
         )
 
