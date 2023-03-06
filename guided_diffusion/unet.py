@@ -1104,7 +1104,7 @@ class IntegratedUNetModel(nn.Module):
 
         self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
         self.cdff2 = CrossDomainFeatureFusion(cat_channel=320*2, out_channel=320)
-        self.cdff3 = CrossDomainFeatureFusion(cat_channel=128*2, out_channel=256)
+        self.cdff3 = CrossDomainFeatureFusion(cat_channel=128*2, out_channel=128)
         self.cdff4 = CrossDomainFeatureFusion(cat_channel=64*2, out_channel=128)    
 
         self.pgfr1_up =  Upsample(512, False, dims=2)
