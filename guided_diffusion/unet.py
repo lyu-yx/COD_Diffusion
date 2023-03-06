@@ -767,13 +767,13 @@ class EdgeDeducingModule(nn.Module):
         size = edge_bb_feature.size()[2:]
         edge_bb_feature = self.reduce(edge_bb_feature)
         # edge_bb_feature = F.interpolate(edge_bb_feature, size, mode='bilinear', align_corners=False)
-        print('reduced edge_bb_feature', edge_bb_feature.size())
+        # print('reduced edge_bb_feature', edge_bb_feature.size())
         cat_feature = self.cbr1(edge_bb_feature)
-        print('cbr1', cat_feature.size())
+        # print('cbr1', cat_feature.size())
         out = self.cbr2(cat_feature)
-        print('cbr2', out.size())
-        out = th.cat((out, cat_feature), dim=1)
-        print('cat feature size', out.size())
+        # print('cbr2', out.size())
+        out = th.cat([out, cat_feature], dim=1)
+        # print('cat feature size', out.size())
         out = self.out_conv(out)
         return out
 
@@ -808,7 +808,7 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
 
 
     def forward(self, noise_f, edge_f):
-        x = th.cat((noise_f, edge_f), dim = 1)
+        x = th.cat([noise_f, edge_f], dim=1)
         x = self.g_conv1(x) + self.g_conv2(x) + self.g_conv3(x) + x
         x_res = x
 
@@ -1153,26 +1153,26 @@ class IntegratedUNetModel(nn.Module):
             hs.append(h)
         h = self.middle_block(h, emb)
         
-        pgfr1_out = self.pgfr1(fb4)
+        pgfr1_out, edge1 = self.pgfr1(fb4)
         h = self.cdff1(pgfr1_out, h)
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
 
-        pgfr2_out = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
+        pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
         h = self.cdff2(pgfr2_out, h)
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
 
-        pgfr3_out = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
+        pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
         h = self.cdff3(pgfr3_out, h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
 
-        pgfr4_out = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
+        pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         h = self.cdff4(pgfr4_out, h)
 
         h = self.out_layer5(h, emb)
         h = self.out_layer6(h, emb)
         out = self.out(h)
         
-        return out
+        return out, edge1, edge2, edge3, edge4
 
 
 
