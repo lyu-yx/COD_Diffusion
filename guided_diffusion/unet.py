@@ -761,7 +761,7 @@ class EdgeDeducingModule(nn.Module):
         self.cbr1 = nn.Sequential(ConvBR(int(in_channel/2), 64, 3, padding=1))
         self.cbr2 = nn.Sequential(ConvBR(64, 32, 3, padding=1))
                                    
-        self.out_conv = nn.Conv2d(32+int(in_channel/2), 1, 1)
+        self.out_conv = nn.Conv2d(32+64, 1, 1)
 
     def forward(self, edge_bb_feature):
         size = edge_bb_feature.size()[2:]
