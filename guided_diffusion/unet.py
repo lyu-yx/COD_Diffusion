@@ -782,14 +782,15 @@ class PriorGuidedFeatureRefinement(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(PriorGuidedFeatureRefinement, self).__init__()
         self.edge_deduce_module = EdgeDeducingModule(in_channel)
-        self.de = DimensionalExtention(1, out_channel)
+        self.de = DimensionalExtention(1, in_channel)
+        self.dr = DimensionalReduction(in_channel, out_channel)
         
         
     def forward(self, edge_bb_feature):
         edge_out = self.edge_deduce_module(edge_bb_feature)
         feature_out = self.de(edge_out)
         feature_out = th.mul(edge_bb_feature,  feature_out)
-
+        feature_out = self.dr(feature_out)
         return feature_out, edge_out
 
 
