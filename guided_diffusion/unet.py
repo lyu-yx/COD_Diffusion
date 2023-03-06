@@ -1106,6 +1106,9 @@ class IntegratedUNetModel(nn.Module):
         self.cdff3 = CrossDomainFeatureFusion(cat_channel=128*2, out_channel=256)
         self.cdff4 = CrossDomainFeatureFusion(cat_channel=64*2, out_channel=128)    
 
+        self.pgfr1_up =  Upsample(512, False, dims=2)
+        self.pgfr2_up =  Upsample(320, False, dims=2)
+        self.pgfr3_up =  Upsample(128, False, dims=2)
         # self.dr1 = DimensionalReduction(in_channel=512, out_channel=512)
 
     def convert_to_fp16(self):
@@ -1151,23 +1154,26 @@ class IntegratedUNetModel(nn.Module):
         h = x.type(self.dtype)
         for idx, module in enumerate(self.input_blocks):
             h = module(h, emb)
-            if idx%(self.num_res_blocks+1)==0:
+            if (idx-1)%(self.num_res_blocks+1)==0:
                 hs.append(h)
         hs.pop()
-        
+
         h = self.middle_block(h, emb)
         
         pgfr1_out, edge1 = self.pgfr1(fb4)
         h = self.cdff1(pgfr1_out, h)
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
+        pgfr1_out = self.pgfr1_up(pgfr1_out)
 
         pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
         h = self.cdff2(pgfr2_out, h)
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
+        pgfr2_out = self.pgfr2_up(pgfr2_out)
 
         pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
         h = self.cdff3(pgfr3_out, h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
+        pgfr3_out = self.pgfr3_up(pgfr3_out)
 
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         h = self.cdff4(pgfr4_out, h)
