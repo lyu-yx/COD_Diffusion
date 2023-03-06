@@ -463,18 +463,9 @@ class UNetModel(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
-        self.edge_bb = pvt_v2_b2()
+        # self.edge_bb = pvt_v2_b2()
         
         
-        # for edge feature extraction using PVT
-        path = './results/pvt_v2_b2.pth'
-        save_model = th.load(path)
-        model_dict = self.edge_bb.state_dict()
-        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
-        model_dict.update(state_dict)
-        self.edge_bb.load_state_dict(model_dict)
-
-
         # for noise feature extraction using Unet
         time_embed_dim = model_channels * 4  # 128 * 4
         self.time_embed = nn.Sequential(
@@ -630,6 +621,19 @@ class UNetModel(nn.Module):
             zero_module(conv_nd(dims, model_channels, out_channels, 3, padding=1)),
         )
 
+        # # for edge feature extraction using PVT
+        # path = './results/pvt_v2_b2.pth'
+        # save_model = th.load(path)
+        # model_dict = self.edge_bb.state_dict()
+        # state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        # model_dict.update(state_dict)
+        # self.edge_bb.load_state_dict(model_dict)
+
+        # self.pgfr1 = PriorGuidedFeatureRefinement(in_channel=512, out_channel=512)
+        # self.pgfr2 = PriorGuidedFeatureRefinement(in_channel=320+512, out_channel=320)
+        # self.pgfr3 = PriorGuidedFeatureRefinement(in_channel=128+320, out_channel=128)
+        # self.pgfr4 = PriorGuidedFeatureRefinement(in_channel=64+128, out_channel=64)
+
     def convert_to_fp16(self):
         """
         Convert the torso of the model to float16.
@@ -666,24 +670,24 @@ class UNetModel(nn.Module):
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
 
-        # for edge feature extraction 
-        in_channel_list = [128, 320, 512]
-        channel = 32
-        pvt = self.edge_bb(x[:, :-1, ...])
-        fb1 = pvt[0]
-        fb2 = pvt[1]
-        fb3 = pvt[2]
-        fb4 = pvt[3]
+        # # for edge feature extraction 
+        # in_channel_list = [128, 320, 512]
+        # channel = 32
+        # pvt = self.edge_bb(x[:, :-1, ...])
+        # fb1 = pvt[0]
+        # fb2 = pvt[1]
+        # fb3 = pvt[2]
+        # fb4 = pvt[3]
 
-        self.dr1 = DimensionalReduction(in_channel=in_channel_list[0], out_channel=channel)
-        self.dr2 = DimensionalReduction(in_channel=in_channel_list[1], out_channel=channel)
-        self.dr3 = DimensionalReduction(in_channel=in_channel_list[2], out_channel=channel)
+        # self.dr1 = DimensionalReduction(in_channel=in_channel_list[0], out_channel=channel)
+        # self.dr2 = DimensionalReduction(in_channel=in_channel_list[1], out_channel=channel)
+        # self.dr3 = DimensionalReduction(in_channel=in_channel_list[2], out_channel=channel)
 
-        xr3 = self.dr1(fb2)
-        xr4 = self.dr2(fb3)
-        xr5 = self.dr3(fb4)
+        # xr3 = self.dr1(fb2)
+        # xr4 = self.dr2(fb3)
+        # xr5 = self.dr3(fb4)
 
-        edge = self.eem(fb2, fb4)
+        # edge = self.eem(fb2, fb4)
 
         h = x.type(self.dtype)
         for module in self.input_blocks:
@@ -749,15 +753,15 @@ class DimensionalExtention(nn.Module):
     def forward(self, x):
         return self.extend(x)
 
-class EdgeEstimationModule(nn.Module):
+class EdgeDeducingModule(nn.Module):
     def __init__(self, in_channel):
-        super(EdgeEstimationModule, self).__init__()
-        self.reduce = DimensionalReduction(in_channel, in_channel / 2)  # [128, 320, 512]
+        super(EdgeDeducingModule, self).__init__()
+        self.reduce = DimensionalReduction(in_channel=in_channel, out_channel=int(in_channel/2))  # [128, 320, 512]
         
-        self.cbr1 = nn.Sequential(ConvBR(in_channel / 2, 64, 3, padding=1))
+        self.cbr1 = nn.Sequential(ConvBR(int(in_channel/2), 64, 3, padding=1))
         self.cbr2 = nn.Sequential(ConvBR(64, 32, 3, padding=1))
                                    
-        self.out_conv = nn.Conv2d(32 + in_channel / 2, 1, 1)
+        self.out_conv = nn.Conv2d(32+int(in_channel/2), 1, 1)
 
     def forward(self, edge_bb_feature):
         size = edge_bb_feature.size()[2:]
@@ -771,10 +775,10 @@ class EdgeEstimationModule(nn.Module):
 
 
 class PriorGuidedFeatureRefinement(nn.Module):
-    def __init__(self, in_channel):
+    def __init__(self, in_channel, out_channel):
         super(PriorGuidedFeatureRefinement, self).__init__()
-        self.edge_deduce_module = EdgeEstimationModule(in_channel)
-        self.de = DimensionalExtention(1, in_channel)
+        self.edge_deduce_module = EdgeDeducingModule(in_channel)
+        self.de = DimensionalExtention(1, out_channel)
         
         
     def forward(self, edge_bb_feature):
@@ -794,8 +798,9 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
         self.g_conv1 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[0], bias=False)
         self.g_conv2 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[1], bias=False)
         self.g_conv3 = nn.Conv2d(cat_channel, out_channel, kernel_size=1, groups=N[2], bias=False)
-        self.cbr1 = ConvBR(out_channel, out_channel)
-        self.cbr2 = ConvBR(out_channel, out_channel)
+        self.cbr1 = ConvBR(out_channel, out_channel, 3, padding=1)
+        self.cbr2 = ConvBR(out_channel, out_channel, 3, padding=1)
+        self.upsample = Upsample(out_channel, False, dims=2)
 
 
     def forward(self, noise_f, edge_f):
@@ -806,6 +811,7 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
         x = self.cbr1(x)
         x = self.cbr2(x)
         x = x_res + x
+        x = self.upsample(x)
         
         return x
 
@@ -828,7 +834,7 @@ class SuperResModel(UNetModel):
         return super().forward(x, timesteps, **kwargs)
 
 
-class EncoderUNetModel(nn.Module):
+class IntegratedUNetModel(nn.Module):
     """
     The half UNet model with attention and timestep embedding.
 
@@ -847,6 +853,7 @@ class EncoderUNetModel(nn.Module):
         channel_mult=(1, 2, 4, 8),
         conv_resample=True,
         dims=2,
+        num_classes=None,
         use_checkpoint=False,
         use_fp16=False,
         num_heads=1,
@@ -857,11 +864,13 @@ class EncoderUNetModel(nn.Module):
         use_new_attention_order=False,
         pool="adaptive",
     ):
+        
         super().__init__()
 
         if num_heads_upsample == -1:
             num_heads_upsample = num_heads
 
+        self.image_size = image_size
         self.in_channels = in_channels
         self.model_channels = model_channels
         self.out_channels = out_channels
@@ -875,7 +884,7 @@ class EncoderUNetModel(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
-
+        self.edge_bb = pvt_v2_b2()
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
@@ -972,6 +981,69 @@ class EncoderUNetModel(nn.Module):
             ),
         )
         self._feature_size += ch
+
+        self.out_layer5 =  nn.ModuleList([])
+        layer5 = [  ResBlock(
+                        128*2,    # channel
+                        time_embed_dim,
+                        dropout,
+                        out_channels=256,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    ),
+                    ResBlock(
+                        128*2,
+                        time_embed_dim,
+                        dropout,
+                        out_channels=256,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    ),
+                    ResBlock(
+                            128*2,
+                            time_embed_dim,
+                            dropout,
+                            out_channels=128,
+                            dims=dims,
+                            use_checkpoint=use_checkpoint,
+                            use_scale_shift_norm=use_scale_shift_norm,
+                            up=True,
+                        )
+                ]
+        self.out_layer5.append(TimestepEmbedSequential(*layer5))
+        
+        self.out_layer6 =  nn.ModuleList([])
+        layer6 = [  ResBlock(
+                        128*2,    # channel
+                        time_embed_dim,
+                        dropout,
+                        out_channels=256,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    ),
+                    ResBlock(
+                        128*2,
+                        time_embed_dim,
+                        dropout,
+                        out_channels=256,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    )
+                ]
+        self.out_layer6.append(TimestepEmbedSequential(*layer6))
+        
+        
+        self.out = nn.Sequential(
+            normalization(256),
+            nn.SiLU(),
+            zero_module(conv_nd(2, 256, 2, 3, padding=1)),
+        )
+
+
         self.pool = pool
         self.gap = nn.AvgPool2d((8, 8))  #global average pooling
         self.cam_feature_maps = None
@@ -1006,6 +1078,31 @@ class EncoderUNetModel(nn.Module):
         else:
             raise NotImplementedError(f"Unexpected {pool} pooling")
 
+
+        # for edge feature extraction using PVT
+        path = './results/pvt_v2_b2.pth'
+        save_model = th.load(path)
+        model_dict = self.edge_bb.state_dict()
+        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.edge_bb.load_state_dict(model_dict)
+
+        self.pgfr1 = PriorGuidedFeatureRefinement(in_channel=512, out_channel=512)
+        self.pgfr2 = PriorGuidedFeatureRefinement(in_channel=320+512, out_channel=320)    # curr PGFR + last PGFR
+        self.pgfr3 = PriorGuidedFeatureRefinement(in_channel=128+320, out_channel=128)
+        self.pgfr4 = PriorGuidedFeatureRefinement(in_channel=64+128, out_channel=64)    
+
+        self.dr2 = DimensionalReduction(in_channel=512*2, out_channel=320)    #  U-net + U-net(after DR)
+        self.dr3 = DimensionalReduction(in_channel=320+256, out_channel=128)
+        self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=64) 
+
+        self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
+        self.cdff2 = CrossDomainFeatureFusion(cat_channel=320*2, out_channel=320)
+        self.cdff3 = CrossDomainFeatureFusion(cat_channel=128*2, out_channel=256)
+        self.cdff4 = CrossDomainFeatureFusion(cat_channel=64*2, out_channel=128)    
+
+        # self.dr1 = DimensionalReduction(in_channel=512, out_channel=512)
+
     def convert_to_fp16(self):
         """
         Convert the torso of the model to float16.
@@ -1030,25 +1127,63 @@ class EncoderUNetModel(nn.Module):
         :param timesteps: a 1-D batch of timesteps.
         :return: an [N x K] Tensor of outputs.
         """
+        hs = []
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
 
-        results = []
+        # if self.num_classes is not None:
+        #     assert y.shape == (x.shape[0],)
+        #     emb = emb + self.label_emb(y)
+
+        # for edge feature extraction 
+        # in_channel_list = [64, 128, 320, 512]
+        # channel = 32
+        pvt = self.edge_bb(x[:, :-1, ...])
+        fb1 = pvt[0]
+        fb2 = pvt[1]
+        fb3 = pvt[2]
+        fb4 = pvt[3]
+
         h = x.type(self.dtype)
         for module in self.input_blocks:
             h = module(h, emb)
-            if self.pool.startswith("spatial"):
-                results.append(h.type(x.dtype).mean(dim=(2, 3)))
+            hs.append(h)
         h = self.middle_block(h, emb)
+        
+        pgfr1_out = self.pgfr1(fb4)
+        h = self.cdff1(pgfr1_out, h)
+        h = self.dr2(th.cat([h, hs.pop()], dim=1))
+
+        pgfr2_out = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
+        h = self.cdff2(pgfr2_out, h)
+        h = self.dr3(th.cat([h, hs.pop()], dim=1))
+
+        pgfr3_out = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
+        h = self.cdff3(pgfr3_out, h)
+        h = self.dr4(th.cat([h, hs.pop()], dim=1))
+
+        pgfr4_out = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
+        h = self.cdff4(pgfr4_out, h)
+
+        h = self.out_layer5(h, emb)
+        h = self.out_layer6(h, emb)
+        out = self.out(h)
+        
+        return out
 
 
-        if self.pool.startswith("spatial"):
-            self.cam_feature_maps = h
-            h = self.gap(h)
-            N = h.shape[0]
-            h = h.reshape(N, -1)
-            print('h1', h.shape)
-            return self.out(h)
-        else:
-            h = h.type(x.dtype)
-            self.cam_feature_maps = h
-            return self.out(h)
+
+
+
+
+
+
+
+
+
+
+        
+
+        
+    
+
+        
