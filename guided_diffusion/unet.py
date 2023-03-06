@@ -813,7 +813,7 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
         x = self.g_conv1(x) + self.g_conv2(x) + self.g_conv3(x) + x
         x_res = self.dr(x)
 
-        x = self.cbr1(x)
+        x = self.cbr1(x_res)
         x = self.cbr2(x)
         x = x_res + x
         x = self.upsample(x)
@@ -1149,9 +1149,12 @@ class IntegratedUNetModel(nn.Module):
         fb4 = pvt[3]
 
         h = x.type(self.dtype)
-        for module in self.input_blocks:
+        for idx, module in enumerate(self.input_blocks):
             h = module(h, emb)
-            hs.append(h)
+            if idx%(self.num_res_blocks+1)==0:
+                hs.append(h)
+        hs.pop()
+        
         h = self.middle_block(h, emb)
         
         pgfr1_out, edge1 = self.pgfr1(fb4)
