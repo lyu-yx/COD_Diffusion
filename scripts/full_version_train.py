@@ -55,12 +55,13 @@ def main():
     
     train_loader = get_loader(image_root=args.train_root + 'Imgs/',
                               gt_root=args.train_root + 'GT/',
-                            # edge_root=args.train_root + 'Edge/',
+                              edge_root=args.train_root + 'Edge/',
                               batchsize=args.batch_size,
                               trainsize=args.train_size,
                               num_workers=4)
     val_loader = test_dataset(image_root=args.val_root + 'Imgs/',
                               gt_root=args.val_root + 'GT/',
+                              edge_root=args.val_root + 'Edge/',
                               testsize=args.test_size)
     data = iter(train_loader)
 

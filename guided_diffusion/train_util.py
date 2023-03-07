@@ -215,14 +215,14 @@ class TrainLoop:
             if self.step % self.save_interval == 0:
                 # iter_num = int(self.step / self.save_interval)
                 # val_single_img(self.single_visimg_pth, self.single_visgt_pth, iter_num)
-                self.save()
+                self.save_full()
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
                     return
             self.step += 1
         # Save the last checkpoint if it wasn't already saved.
         if (self.step - 1) % self.save_interval != 0:
-            self.save()
+            self.save_full()
 
     def run_step(self, batch, cond, edge_gt):
         batch=th.cat((batch, cond), dim=1)
@@ -271,14 +271,16 @@ class TrainLoop:
             losses = losses1[0]
             sample = losses1[1]
             edges = losses1[2]
-            # logging
-            edge_loss_out = (edge_loss(edges[0], edge_gt) + 4 * edge_loss(edges[1], edge_gt)
-                          + 9 * edge_loss(edges[2], edge_gt) + 16 * edge_loss(edges[3], edge_gt)) / 300
+            
+            edge_loss_out = (edge_loss(edges[0].cpu(), edge_gt) + 4 * edge_loss(edges[1].cpu(), edge_gt)
+                          + 9 * edge_loss(edges[2].cpu(), edge_gt) + 16 * edge_loss(edges[3].cpu(), edge_gt))
 
-            loss = (losses["loss"] * weights).mean()
-
-            wandb.log({"edge_loss": edge_loss_out})
+            mse_loss = (losses["loss"] * weights).mean()
+            loss = mse_loss +  0.002 * edge_loss_out   # make mse the major loss
+            
             wandb.log({"loss": loss})
+            wandb.log({"edge_loss": edge_loss_out})
+            wandb.log({"mse loss": mse_loss})
 
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
@@ -326,7 +328,32 @@ class TrainLoop:
                 th.save(self.opt.state_dict(), f)
 
         dist.barrier()
+        
 
+    def save_full(self):
+        def save_checkpoint(rate, params):
+            state_dict = self.mp_trainer.master_params_to_state_dict(params)
+            if dist.get_rank() == 0:
+                logger.log(f"saving full model {rate}...")
+                if not rate:
+                    filename = f"fullsavedmodel{(self.step+self.resume_step):06d}.pt"
+                else:
+                    filename = f"fullemasavedmodel_{rate}_{(self.step+self.resume_step):06d}.pt"
+                with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
+                    th.save(state_dict, f)
+
+        save_checkpoint(0, self.mp_trainer.master_params)
+        for rate, params in zip(self.ema_rate, self.ema_params):
+            save_checkpoint(rate, params)
+
+        if dist.get_rank() == 0:
+            with bf.BlobFile(
+                bf.join(get_blob_logdir(), f"fulloptsavedmodel{(self.step+self.resume_step):06d}.pt"),
+                "wb",
+            ) as f:
+                th.save(self.opt.state_dict(), f)
+
+        dist.barrier()
 
 def parse_resume_step_from_filename(filename):
     """
