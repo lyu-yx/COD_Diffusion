@@ -10,17 +10,19 @@ from torchvision.utils import save_image
 import torch
 import wandb
 import math
-# from visdom import Visdom
-# viz = Visdom(port=8850)
+from scipy import ndimage
+from torchvision import transforms
 import numpy as np
 import torch as th
-#from .train_util import visualize
+
+
 from .nn import mean_flat
 from .losses import normal_kl, discretized_gaussian_log_likelihood
 from .utils import staple, dice_score, norm
 from .dpm_solver import NoiseScheduleVP, model_wrapper, DPM_Solver
-from scipy import ndimage
-from torchvision import transforms
+
+
+
 def standardize(img):
     mean = th.mean(img)
     std = th.std(img)
@@ -976,8 +978,9 @@ class GaussianDiffusion:
             ]:
                 B, C = x_t.shape[:2]
                 C=1
-                assert model_output.shape == (B, C * 2, *x_t.shape[2:])
-                model_output, model_var_values = th.split(model_output, C, dim=1)
+                assert model_output[0].shape == (B, C * 2, *x_t.shape[2:]) # model_output: out, edge1-4
+                edges = model_output[1]
+                model_output, model_var_values = th.split(model_output[0], C, dim=1)
                 # Learn the variance using the variational bound, but don't let
                 # it affect our mean prediction.
                 frozen_out = th.cat([model_output.detach(), model_var_values], dim=1)
@@ -1004,24 +1007,15 @@ class GaussianDiffusion:
             if "vb" in terms:
                 terms["loss"] = terms["mse"] + terms["vb"]
 
-                # lossdata = terms["loss"].tolist()
-                # msedata = terms["mse"].tolist()
-                # vbdata = terms["vb"].tolist()
-                # wandb.log({"loss: mse + vb": lossdata,
-                #            "mse part": msedata,
-                #            "vb part": vbdata})
 
             else:
                 
                 terms["loss"] = terms["mse"]
-                # print('terms["loss"]', terms["loss"])
-                # lossdata = terms["loss"].data
-                # wandb.log({"loss: mse only": lossdata})
 
         else:
             raise NotImplementedError(self.loss_type)
         
-        return (terms, model_output)
+        return (terms, model_output, edges)
 
 
     def _prior_bpd(self, x_start):

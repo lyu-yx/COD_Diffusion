@@ -7,7 +7,7 @@ https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0
 import numpy as np
 
 import torch as th
-
+import torch.nn.functional as F
 
 def normal_kl(mean1, logvar1, mean2, logvar2):
     """
@@ -75,3 +75,34 @@ def discretized_gaussian_log_likelihood(x, *, means, log_scales):
     )
     assert log_probs.shape == x.shape
     return log_probs
+
+
+def structure_loss(pred, mask):
+    """
+    loss function (ref: F3Net-AAAI-2020)
+    """
+    weit = 1 + 5 * th.abs(F.avg_pool2d(mask, kernel_size=31, stride=1, padding=15) - mask)
+    wbce = F.binary_cross_entropy_with_logits(pred, mask, reduce='none')
+    wbce = (weit * wbce).sum(dim=(2, 3)) / weit.sum(dim=(2, 3))
+
+    pred = th.sigmoid(pred)
+    inter = ((pred * mask) * weit).sum(dim=(2, 3))
+    union = ((pred + mask) * weit).sum(dim=(2, 3))
+    wiou = 1 - (inter + 1) / (union - inter + 1)
+    return (wbce + wiou).mean()
+
+
+def edge_loss(pred, edge):
+    """
+    dice_loss
+    """
+    smooth = 1
+    p = 2
+    valid_mask = th.ones_like(edge)
+    pred = pred.contiguous().view(pred.shape[0], -1)
+    edge = edge.contiguous().view(edge.shape[0], -1)
+    valid_mask = valid_mask.contiguous().view(valid_mask.shape[0], -1)
+    num = th.sum(th.mul(pred, edge) * valid_mask, dim=1) * 2 + smooth
+    den = th.sum((pred.pow(p) + edge.pow(p)) * valid_mask, dim=1) + smooth
+    loss = 1 - num / den
+    return loss.mean()

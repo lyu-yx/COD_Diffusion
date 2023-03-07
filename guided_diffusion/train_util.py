@@ -28,6 +28,7 @@ from guided_diffusion.script_util import (
     add_dict_to_argparser,
     args_to_dict,
 )
+from .losses import structure_loss, edge_loss
 # from visdom import Visdom
 
 # viz = Visdom(port=8850)
@@ -199,15 +200,15 @@ class TrainLoop:
 
             try:
                 # batch for RGB; cond for label
-                    batch, cond = next(data_iter)
+                    batch, cond, edge_gt = next(data_iter)
                     
             except StopIteration:
                     # StopIteration is thrown if dataset ends
                     # reinitialize data loader
                     data_iter = iter(self.data_loader)
-                    batch, cond = next(data_iter)
+                    batch, cond, edge_gt = next(data_iter)
 
-            self.run_step(batch, cond)
+            self.run_step(batch, cond, edge_gt)
 
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
@@ -223,10 +224,10 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save()
 
-    def run_step(self, batch, cond):
+    def run_step(self, batch, cond, edge_gt):
         batch=th.cat((batch, cond), dim=1)
         cond={}
-        sample = self.forward_backward(batch, cond)
+        sample = self.forward_backward(batch, cond, edge_gt)
         took_step = self.mp_trainer.optimize(self.opt)
         if took_step:
             self._update_ema()
@@ -234,7 +235,7 @@ class TrainLoop:
         self.log_step()
         return sample
 
-    def forward_backward(self, batch, cond):
+    def forward_backward(self, batch, cond, edge_gt):
 
         self.mp_trainer.zero_grad()
         for i in range(0, batch.shape[0], self.microbatch):
@@ -269,8 +270,14 @@ class TrainLoop:
                 )
             losses = losses1[0]
             sample = losses1[1]
+            edges = losses1[2]
             # logging
+            edge_loss_out = (edge_loss(edges[0], edge_gt) + 4 * edge_loss(edges[1], edge_gt)
+                          + 9 * edge_loss(edges[2], edge_gt) + 16 * edge_loss(edges[3], edge_gt)) / 300
+
             loss = (losses["loss"] * weights).mean()
+
+            wandb.log({"edge_loss": edge_loss_out})
             wandb.log({"loss": loss})
 
             log_loss_dict(

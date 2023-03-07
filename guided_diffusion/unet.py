@@ -1050,39 +1050,39 @@ class IntegratedUNetModel(nn.Module):
         )
 
 
-        self.pool = pool
-        self.gap = nn.AvgPool2d((8, 8))  #global average pooling
-        self.cam_feature_maps = None
-        print('pool', pool)
-        if pool == "adaptive":
-            self.out = nn.Sequential(
-                normalization(ch),
-                nn.SiLU(),
-                nn.AdaptiveAvgPool2d((1, 1)),
-                zero_module(conv_nd(dims, ch, out_channels, 1)),
-                nn.Flatten(),
-            )
-        elif pool == "attention":
-            assert num_head_channels != -1
-            self.out = nn.Sequential(
-                normalization(ch),
-                nn.SiLU(),
-                AttentionPool2d(
-                    (image_size // ds), ch, num_head_channels, out_channels
-                ),
-            )
-        elif pool == "spatial":
-            self.out = nn.Linear(256, self.out_channels)
+        # self.pool = pool
+        # self.gap = nn.AvgPool2d((8, 8))  #global average pooling
+        # self.cam_feature_maps = None
+        # print('pool', pool)
+        # if pool == "adaptive":
+        #     self.out = nn.Sequential(
+        #         normalization(ch),
+        #         nn.SiLU(),
+        #         nn.AdaptiveAvgPool2d((1, 1)),
+        #         zero_module(conv_nd(dims, ch, out_channels, 1)),
+        #         nn.Flatten(),
+        #     )
+        # elif pool == "attention":
+        #     assert num_head_channels != -1
+        #     self.out = nn.Sequential(
+        #         normalization(ch),
+        #         nn.SiLU(),
+        #         AttentionPool2d(
+        #             (image_size // ds), ch, num_head_channels, out_channels
+        #         ),
+        #     )
+        # elif pool == "spatial":
+        #     self.out = nn.Linear(256, self.out_channels)
 
-        elif pool == "spatial_v2":
-            self.out = nn.Sequential(
-                nn.Linear(self._feature_size, 2048),
-                normalization(2048),
-                nn.SiLU(),
-                nn.Linear(2048, self.out_channels),
-            )
-        else:
-            raise NotImplementedError(f"Unexpected {pool} pooling")
+        # elif pool == "spatial_v2":
+        #     self.out = nn.Sequential(
+        #         nn.Linear(self._feature_size, 2048),
+        #         normalization(2048),
+        #         nn.SiLU(),
+        #         nn.Linear(2048, self.out_channels),
+        #     )
+        # else:
+        #     raise NotImplementedError(f"Unexpected {pool} pooling")
 
 
         # for edge feature extraction using PVT
@@ -1111,6 +1111,11 @@ class IntegratedUNetModel(nn.Module):
         self.pgfr2_up =  Upsample(320, False, dims=2)
         self.pgfr3_up =  Upsample(128, False, dims=2)
         # self.dr1 = DimensionalReduction(in_channel=512, out_channel=512)
+
+        self.upsample_32 = nn.Upsample(scale_factor=32, mode='bilinear', align_corners=True)
+        self.upsample_16 = nn.Upsample(scale_factor=16, mode='bilinear', align_corners=True)
+        self.upsample_8 = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
+        self.upsample_4 = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
 
     def convert_to_fp16(self):
         """
@@ -1180,17 +1185,17 @@ class IntegratedUNetModel(nn.Module):
         h = self.cdff4(pgfr4_out, h)
         
 
+        h = th.cat([h, hs.pop()], dim=1)
         for module in self.out_layer5:
-            h = self.out_layer5(h, emb)
             h = module(h, emb)
 
+        h = th.cat([h, hs.pop()], dim=1)
         for module in self.out_layer6:
-            h = self.out_layer6(h, emb)
             h = module(h, emb)
         
         out = self.out(h)
         
-        return out, edge1, edge2, edge3, edge4
+        return out, (self.upsample_32(edge1), self.upsample_16(edge2), self.upsample_8(edge3), self.upsample_4(edge4))
 
 
 
