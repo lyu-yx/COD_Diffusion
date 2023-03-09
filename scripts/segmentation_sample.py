@@ -59,7 +59,7 @@ def main():
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
 
-    val_loader = EvalDataset(args.data_dir, gt_root=args.gt_dir, testsize=352)
+    val_loader = EvalDataset(args.data_dir, gt_root=args.gt_dir, edge_root=args.root_dir, testsize=352)
     # datal = th.utils.data.DataLoader(
     #     val_loader,
     #     batch_size=1,
@@ -90,7 +90,7 @@ def main():
 
     # while len(all_images) * args.batch_size < args.num_samples:
     for i in tqdm(range(val_loader.size)):
-        img, gt, name, _ = val_loader.load_data() # should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
+        img, gt, edges, name, _ = val_loader.load_data() # should return an image from the dataloader "data"  b: 1, 3, 352, 352, c: 1, 1, 352, 352
         noise = th.randn_like(img[:, :1, ...])
         img = th.cat((img, noise), dim=1)     # add a noise channel
         img_size = np.asarray(gt, np.float32).shape
@@ -138,6 +138,7 @@ def create_argparser():
     defaults = dict(
         data_dir="../BUDG/dataset/TestDataset/CAMO/Imgs/",
         gt_dir="../BUDG/dataset/TestDataset/CAMO/GT/",
+        root_dir="../BUDG/dataset/TestDataset/CAMO/Edge/",
         size=352,
         num_channels=128,
         clip_denoised=True,
