@@ -70,6 +70,7 @@ class TrainLoop:
         schedule_sampler=None,
         weight_decay=0.0,
         lr_anneal_steps=0,
+        save_pth,
         single_visimg_pth,
         single_visgt_pth,
     ):
@@ -99,7 +100,7 @@ class TrainLoop:
         self.step = 0
         self.resume_step = 0
         self.global_batch = self.batch_size * dist.get_world_size()
-
+        self.save_pth = save_pth
         self.sync_cuda = th.cuda.is_available()
 
         self._load_and_sync_parameters()
@@ -339,7 +340,7 @@ class TrainLoop:
                     filename = f"fullsavedmodel{(self.step+self.resume_step):06d}.pt"
                 else:
                     filename = f"fullemasavedmodel_{rate}_{(self.step+self.resume_step):06d}.pt"
-                with bf.BlobFile(bf.join(get_blob_logdir(), "full_2_a100", filename), "wb") as f:
+                with bf.BlobFile(bf.join(get_blob_logdir(), self.save_pth, filename), "wb") as f:
                     th.save(state_dict, f)
 
         save_checkpoint(0, self.mp_trainer.master_params)
