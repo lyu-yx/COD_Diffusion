@@ -87,6 +87,7 @@ def main():
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
         save_pth=args.model_save_folder,
+        edge_partition = args.edge_partition,
         single_visimg_pth=args.single_visimg_pth,
         single_visgt_pth=args.single_visgt_pth,
     ).run_loop()
@@ -113,6 +114,7 @@ def create_argparser():
         gpu_dev = "0",
         multi_gpu = "0,1,2,3", # "0,1,2"
         model_save_folder= "",
+        edge_partition = 0.002,
         single_visimg_pth="../BUDG/dataset/TestDataset/COD10K/Imgs/COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",
         single_visgt_pth= "../BUDG/dataset/TestDataset/COD10K/GT/COD10K-CAM-1-Aquatic-1-BatFish-4.png",
     )                     

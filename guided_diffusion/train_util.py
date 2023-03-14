@@ -71,6 +71,7 @@ class TrainLoop:
         weight_decay=0.0,
         lr_anneal_steps=0,
         save_pth,
+        edge_partition,
         single_visimg_pth,
         single_visgt_pth,
     ):
@@ -95,6 +96,7 @@ class TrainLoop:
         self.schedule_sampler = schedule_sampler or UniformSampler(diffusion)
         self.weight_decay = weight_decay
         self.lr_anneal_steps = lr_anneal_steps
+        self.edge_partition = edge_partition
         self.single_visimg_pth = single_visimg_pth
         self.single_visgt_pth = single_visgt_pth
         self.step = 0
@@ -277,7 +279,7 @@ class TrainLoop:
                           + 9 * edge_loss(edges[2].cpu(), edge_gt) + 16 * edge_loss(edges[3].cpu(), edge_gt))
 
             mse_loss = (losses["loss"] * weights).mean()
-            loss = mse_loss +  0.002 * edge_loss_out   # make mse the major loss
+            loss = mse_loss +  self.edge_partition * edge_loss_out   # make mse the major loss
             
             wandb.log({"loss": loss})
             wandb.log({"edge_loss": edge_loss_out})
