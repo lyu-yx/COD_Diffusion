@@ -447,7 +447,7 @@ class GaussianDiffusion:
         )
         sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
 
-        return {"sample": sample, "pred_xstart": out["pred_xstart"]}
+        return {"sample": sample, "pred_xstart": out["pred_xstart"], "edge":out["edge"]}
 
     def p_sample_loop(
         self,
