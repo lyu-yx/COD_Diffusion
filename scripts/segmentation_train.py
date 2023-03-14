@@ -89,7 +89,6 @@ def main():
         single_visgt_pth=args.single_visgt_pth,
     ).run_loop()
 
-
 def create_argparser():
     defaults = dict(
         train_root="../BUDG/dataset/TrainDataset/",

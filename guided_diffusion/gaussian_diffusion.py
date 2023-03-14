@@ -264,7 +264,8 @@ class GaussianDiffusion:
         B, C = x.shape[:2]
         C=1
         assert t.shape == (B,)
-        model_output = model(x, self._scale_timesteps(t), **model_kwargs)
+        model_output, edge_output = model(x, self._scale_timesteps(t), **model_kwargs)
+        edge_output = edge_output[-1]
         x=x[:,-1:,...]  #loss is only calculated on the last channel, not on the input brain MR image
         if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:
             assert model_output.shape == (B, C * 2, *x.shape[2:])
@@ -330,6 +331,7 @@ class GaussianDiffusion:
             "variance": model_variance,
             "log_variance": model_log_variance,
             "pred_xstart": pred_xstart,
+            "edge":edge_output,
         }
 
 
@@ -563,7 +565,7 @@ class GaussianDiffusion:
                 final = sample
             
             
-        return final["sample"], x_noisy, img
+        return final["sample"], x_noisy, img, final["edge"]
 
 
     def p_sample_loop_progressive(
