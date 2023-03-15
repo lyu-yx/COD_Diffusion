@@ -284,6 +284,7 @@ class TrainLoop:
             wandb.log({"loss": loss})
             wandb.log({"edge_loss": edge_loss_out})
             wandb.log({"mse loss": mse_loss})
+            wandb.log({"lr": self.opt.param_groups["lr"]})
 
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
