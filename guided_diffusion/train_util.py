@@ -284,7 +284,7 @@ class TrainLoop:
             wandb.log({"loss": loss})
             wandb.log({"edge_loss": edge_loss_out})
             wandb.log({"mse loss": mse_loss})
-            wandb.log({"lr": self.opt.param_groups["lr"]})
+            
 
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
@@ -301,6 +301,7 @@ class TrainLoop:
             return
         frac_done = (self.step + self.resume_step) / self.lr_anneal_steps
         lr = self.lr * (1 - frac_done)
+        wandb.log({"lr": lr})
         for param_group in self.opt.param_groups:
             param_group["lr"] = lr
 
