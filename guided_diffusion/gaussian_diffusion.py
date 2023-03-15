@@ -268,7 +268,7 @@ class GaussianDiffusion:
         edge_output = model_output[-1]
         x=x[:,-1:,...]  #loss is only calculated on the last channel, not on the input brain MR image
         if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:
-            assert model_output.shape == (B, C * 2, *x.shape[2:])
+            assert model_output.shape == (B, C * 2, *x.shape[2:]), f"model_out should be {(B, C * 2, *x.shape[2:])}, but got {model_output.shape}."
             model_output, model_var_values = th.split(model_output, C, dim=1)
             if self.model_var_type == ModelVarType.LEARNED:
                 model_log_variance = model_var_values
@@ -333,8 +333,8 @@ class GaussianDiffusion:
             "pred_xstart": pred_xstart,
             "edge":edge_output,
         }
-
-
+    
+    
 
     def _predict_xstart_from_eps(self, x_t, t, eps):
         assert x_t.shape == eps.shape
