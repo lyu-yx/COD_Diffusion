@@ -564,8 +564,9 @@ class GaussianDiffusion:
             ):
                 final = sample
             
+            return final["sample"], x_noisy, img, final["edge"]
             
-        return final["sample"], x_noisy, img, final["edge"]
+        return final["sample"], x_noisy, img
 
 
     def p_sample_loop_progressive(
