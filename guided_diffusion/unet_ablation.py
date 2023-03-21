@@ -825,7 +825,7 @@ class IntegratedUNetModel_NoCDFF(nn.Module):
 
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         h = self.cat_dr4(th.cat([pgfr4_out, h], dim=1))
-        
+        h = self.upsample_s4(h)
         
 
         h = th.cat([h, hs.pop()], dim=1)
