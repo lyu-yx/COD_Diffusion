@@ -118,9 +118,10 @@ def main():
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
             output[output <= threshold] = 0
             output[output > threshold] = 1
+            plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
             output = sitk.Cast(sitk.GetImageFromArray(output), sitk.sitkUInt8)
             sample_arrays.append(output)
-            plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
+            
         
         
         images = [array for array in sample_arrays]
