@@ -741,7 +741,15 @@ class IntegratedUNetModel_NoCDFF(nn.Module):
         self.dr3 = DimensionalReduction(in_channel=320+256, out_channel=128)
         self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=64) 
 
-        
+        self.cat_dr1 = DimensionalReduction(in_channel=512*2, out_channel=512)   
+        self.cat_dr2 = DimensionalReduction(in_channel=320*2, out_channel=320)
+        self.cat_dr3 = DimensionalReduction(in_channel=128*2, out_channel=128)
+        self.cat_dr4 = DimensionalReduction(in_channel=64*2, out_channel=128) 
+
+        self.upsample_s1 = Upsample(512, False, dims=2)
+        self.upsample_s2 = Upsample(320, False, dims=2)
+        self.upsample_s3 = Upsample(128, False, dims=2)
+        self.upsample_s4 = Upsample(128, False, dims=2)
 
         self.pgfr1_up =  Upsample(512, False, dims=2)
         self.pgfr2_up =  Upsample(320, False, dims=2)
@@ -796,20 +804,28 @@ class IntegratedUNetModel_NoCDFF(nn.Module):
 
         h = self.middle_block(h, emb)
         
+    
         pgfr1_out, edge1 = self.pgfr1(fb4)
+        h = self.cat_dr1(th.cat([pgfr1_out, h], dim=1))
+        h = self.upsample_s1(h)
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
         pgfr1_out = self.pgfr1_up(pgfr1_out)
 
         pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
+        h = self.cat_dr2(th.cat([pgfr2_out, h], dim=1))
+        h = self.upsample_s2(h)
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
         pgfr2_out = self.pgfr2_up(pgfr2_out)
 
         pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
+        h = self.cat_dr3(th.cat([pgfr3_out, h], dim=1))
+        h = self.upsample_s3(h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
         pgfr3_out = self.pgfr3_up(pgfr3_out)
 
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
-        h = self.cdff4(pgfr4_out, h)
+        h = self.cat_dr4(th.cat([pgfr4_out, h], dim=1))
+        
         
 
         h = th.cat([h, hs.pop()], dim=1)
