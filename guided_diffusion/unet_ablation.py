@@ -1161,6 +1161,6 @@ class IntegratedUNetModel_NoPGFR(nn.Module):
         
         out = self.out(h)
         
-        return out, ([], [], [], [])
+        return out, (th.zeros(1), th.zeros(1), th.zeros(1), th.zeros(1))
 
 

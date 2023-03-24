@@ -19,8 +19,9 @@
       3. [x] cross domain feature fusion(CDFF) 03.01
       4. [x] prior guided feature refinement(PGFR)  03.01
       5. [x] cat with Unet 03.05
-   2. [x] success train 03.07
-   3. [ ] hyper parameter adjust
+   2. [x] Larger model for better performance 03.15
+   3. [x] success train 03.07
+   4. [ ] hyper parameter adjust
       1. [ ] training part
          1. [ ] learning rate
          2. [ ] meta parameter in loss
@@ -28,7 +29,7 @@
       2. [ ] sampling part
          1. [ ] staple number
          2. [ ] diffusion step
-   4. [ ] validation arch effectiveness
+   5. [ ] ablation study 03.23
 
 train meta
 | lr | loss meta |
