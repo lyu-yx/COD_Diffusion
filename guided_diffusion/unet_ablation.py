@@ -1160,7 +1160,9 @@ class IntegratedUNetModel_NoPGFR(nn.Module):
             h = module(h, emb)
         
         out = self.out(h)
-        
-        return out, (th.zeros(1).to("cuda"), th.zeros(1).to("cuda"), th.zeros(1).to("cuda"), th.zeros(1).to("cuda"))
+        b = out.size()[0]
+        h = out.size()[2]
+        w = out.size()[3]
+        return out, (th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"))
 
 
