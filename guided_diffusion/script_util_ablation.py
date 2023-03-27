@@ -72,6 +72,7 @@ def classifier_and_diffusion_defaults():
     res.update(diffusion_defaults())
     return res
 
+# create function generating (a, b) zeros
 
 def create_model_and_diffusion_nopgfr(
     image_size,
