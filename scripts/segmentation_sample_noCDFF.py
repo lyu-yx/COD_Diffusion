@@ -26,10 +26,10 @@ from guided_diffusion.dataset import test_dataset as EvalDataset
 # from guided_diffusion.bratsloader import BRATSDataset
 import guided_diffusion.staple as staple
 
-from guided_diffusion.script_util import (
+from guided_diffusion.script_util_ablation import (
     NUM_CLASSES,
     model_and_diffusion_defaults,
-    create_model_and_diffusion,
+    create_model_and_diffusion_nocdff,
     add_dict_to_argparser,
     args_to_dict,
 )
@@ -55,7 +55,7 @@ def main():
     dist_util.setup_dist(args)
     logger.configure()
     logger.log("creating model and diffusion...")
-    model, diffusion = create_model_and_diffusion(
+    model, diffusion = create_model_and_diffusion_nocdff(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
 
