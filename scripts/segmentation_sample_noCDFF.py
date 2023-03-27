@@ -65,6 +65,7 @@ def main():
     #     batch_size=1,
     #     shuffle=False)
     # data = iter(datal)
+    # test
 
 
     state_dict = dist_util.load_state_dict(args.model_path, map_location="cpu")
