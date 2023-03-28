@@ -1166,7 +1166,13 @@ class IntegratedUNetModel(nn.Module):
         self.pgfr2_up =  Upsample(320, False, dims=2)
         self.pgfr3_up =  Upsample(128, False, dims=2)
         # self.dr1 = DimensionalReduction(in_channel=512, out_channel=512)
+        
+        self.upsample_s1 = Upsample(512, False, dims=2)
+        self.upsample_s2 = Upsample(320, False, dims=2)
+        self.upsample_s3 = Upsample(128, False, dims=2)
+        self.upsample_s4 = Upsample(128, False, dims=2)
 
+        
         self.upsample_32 = nn.Upsample(scale_factor=32, mode='bilinear', align_corners=True)
         self.upsample_16 = nn.Upsample(scale_factor=16, mode='bilinear', align_corners=True)
         self.upsample_8 = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
@@ -1227,26 +1233,29 @@ class IntegratedUNetModel(nn.Module):
         pgfr1_out, edge1 = self.pgfr1(fb4)
         V1, K1, Q1 = h, h, pgfr1_out
         h = self.transformer_encoder1(V1, K1, Q1)
+        h = self.upsample_s1(h)
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
         pgfr1_out = self.pgfr1_up(pgfr1_out)
 
         pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
         V2, K2, Q2 = h, h, pgfr2_out
         h = self.transformer_encoder2(V2, K2, Q2)
+        h = self.upsample_s2(h)
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
         pgfr2_out = self.pgfr2_up(pgfr2_out)
 
         pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
         V3, K3, Q3 = h, h, pgfr2_out
         h = self.transformer_encoder3(V3, K3, Q3)
+        h = self.upsample_s3(h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
         pgfr3_out = self.pgfr3_up(pgfr3_out)
 
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         V4, K4, Q4 = h, h, pgfr3_out
-        h = self.transformer_encoder3(V4, K4, Q4)
-        h = self.cat_dr4(th.cat([pgfr4_out, h], dim=1))
+        h = self.transformer_encoder4(V4, K4, Q4)
         h = self.upsample_s4(h)
+        
         
 
         h = th.cat([h, hs.pop()], dim=1)
