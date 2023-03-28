@@ -1155,7 +1155,7 @@ class IntegratedUNetModel(nn.Module):
         self.transformer_encoder1 = MultiHeadAttention(8, 11**2, 32, 512) # 11^2
         self.transformer_encoder2 = MultiHeadAttention(8, 22**2, 64, 320) # 11^2
         self.transformer_encoder3 = MultiHeadAttention(8, 44**2, 128, 128) # 11^2
-        self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 256, 64) # 11^2
+        self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 256, 128) # 11^2
 
         # self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
         # self.cdff2 = CrossDomainFeatureFusion(cat_channel=320*2, out_channel=320)
