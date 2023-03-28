@@ -1152,11 +1152,12 @@ class IntegratedUNetModel(nn.Module):
         self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=64) 
 
 
-        self.transformer_encoder1 = MultiHeadAttention(8, 11**2, 32, 512) # 11^2
+        self.transformer_encoder1 = MultiHeadAttention(4, 11**2, 32, 512) # 11^2
         self.transformer_encoder2 = MultiHeadAttention(8, 22**2, 64, 320) # 11^2
-        self.transformer_encoder3 = MultiHeadAttention(8, 44**2, 128, 128) # 11^2
-        self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 256, 128) # 11^2
-
+        self.transformer_encoder3 = MultiHeadAttention(16, 44**2, 128, 128) # 11^2
+        self.transformer_encoder4 = MultiHeadAttention(32, 88**2, 256, 128) # 11^2
+        self.dimension_extension = DimensionalExtention(64, 128)
+        
         # self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
         # self.cdff2 = CrossDomainFeatureFusion(cat_channel=320*2, out_channel=320)
         # self.cdff3 = CrossDomainFeatureFusion(cat_channel=128*2, out_channel=128)
@@ -1254,6 +1255,7 @@ class IntegratedUNetModel(nn.Module):
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         V4, K4, Q4 = h, h, pgfr4_out
         h = self.transformer_encoder4(V4, K4, Q4)
+        h = self.dimension_extension(h)
         h = self.upsample_s4(h)
         
         
