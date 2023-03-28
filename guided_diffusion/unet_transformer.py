@@ -1245,14 +1245,14 @@ class IntegratedUNetModel(nn.Module):
         pgfr2_out = self.pgfr2_up(pgfr2_out)
 
         pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
-        V3, K3, Q3 = h, h, pgfr2_out
+        V3, K3, Q3 = h, h, pgfr3_out
         h = self.transformer_encoder3(V3, K3, Q3)
         h = self.upsample_s3(h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
         pgfr3_out = self.pgfr3_up(pgfr3_out)
 
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
-        V4, K4, Q4 = h, h, pgfr3_out
+        V4, K4, Q4 = h, h, pgfr4_out
         h = self.transformer_encoder4(V4, K4, Q4)
         h = self.upsample_s4(h)
         
