@@ -427,7 +427,10 @@ class MultiHeadAttention(nn.Module):
         self.w_qs   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for queries
         self.w_ks   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for keys
         self.w_vs   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for values
-        self.fc     = nn.Linear(n_head * linear_dim, in_pixels, bias=False) #Final fully connected layer
+        self.fc     = TimestepEmbedSequential(nn.Linear(n_head * linear_dim, in_pixels, bias=False)) #Final fully connected layer
+
+        # Layer Norm
+        self.BN_linear = nn.BatchNorm2d(num_features=num_features)
 
         #Scaled dot product attention
         self.attention = ScaledDotProductAttention(temperature=in_pixels ** 0.5)
@@ -435,7 +438,7 @@ class MultiHeadAttention(nn.Module):
         #Batch normalization layer
         self.OutBN = nn.BatchNorm2d(num_features=num_features)
         self.BN = nn.BatchNorm2d(num_features=num_features)
-    def forward(self, v, k, q, mask=None):
+    def forward(self, v, k, q, mask=None, emb=None):
         # Reshaping matrixes to 2D
         # q = b, c_q, h*w
         # k = b, c_k, h*w
@@ -453,8 +456,11 @@ class MultiHeadAttention(nn.Module):
         # Pass through the pre-attention projection: b x lq x (n*dv)
         # Separate different heads: b x lq x n x dv
         q = self.w_qs(q).view(b, c, n_head, linear_dim)
+        q = self.BN_linear(linear_dim)
         k = self.w_ks(k).view(b, c, n_head, linear_dim)
+        k = self.BN_linear(linear_dim)
         v = self.w_vs(v).view(b, c, n_head, linear_dim)
+        v = self.BN_linear(linear_dim)
 
         # Transpose for attention dot product: b x n x lq x dv
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
@@ -473,7 +479,7 @@ class MultiHeadAttention(nn.Module):
         output = v_attn
 
         v_attn = self.BN(v_attn)
-        v_attn = self.fc(v_attn)
+        v_attn = self.fc(v_attn, emb)
         output = output + v_attn
         #output  = v_attn
 
@@ -1216,28 +1222,28 @@ class IntegratedUNetModel(nn.Module):
         
         pgfr1_out, edge1 = self.pgfr1(fb4)
         V1, K1, Q1 = h, h, pgfr1_out
-        h = self.transformer_encoder1(V1, K1, Q1)
+        h = self.transformer_encoder1(V1, K1, Q1, emb=emb)
         h = self.upsample_s1(h)
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
         pgfr1_out = self.pgfr1_up(pgfr1_out)
 
         pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
         V2, K2, Q2 = h, h, pgfr2_out
-        h = self.transformer_encoder2(V2, K2, Q2)
+        h = self.transformer_encoder2(V2, K2, Q2, emb=emb)
         h = self.upsample_s2(h)
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
         pgfr2_out = self.pgfr2_up(pgfr2_out)
 
         pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
         V3, K3, Q3 = h, h, pgfr3_out
-        h = self.transformer_encoder3(V3, K3, Q3)
+        h = self.transformer_encoder3(V3, K3, Q3, emb=emb)
         h = self.upsample_s3(h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
         pgfr3_out = self.pgfr3_up(pgfr3_out)
 
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         V4, K4, Q4 = h, h, pgfr4_out
-        h = self.transformer_encoder4(V4, K4, Q4)
+        h = self.transformer_encoder4(V4, K4, Q4, emb=emb)
         h = self.dimension_extension(h)
         h = self.upsample_s4(h)
         
