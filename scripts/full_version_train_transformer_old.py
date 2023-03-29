@@ -11,7 +11,7 @@ from guided_diffusion import dist_util, logger
 from guided_diffusion.dataset import CamObjDataset, get_loader, test_dataset
 from guided_diffusion.resample import create_named_schedule_sampler
 # from guided_diffusion.bratsloader import BRATSDataset
-from guided_diffusion.script_util_transformer import (
+from guided_diffusion.script_util_transformer_old import (
     model_and_diffusion_defaults,
     create_model_and_diffusion,
     args_to_dict,
