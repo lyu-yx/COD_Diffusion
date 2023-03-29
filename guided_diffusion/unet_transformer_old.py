@@ -431,10 +431,10 @@ class MultiHeadAttention(nn.Module):
 
         #Scaled dot product attention
         self.attention = ScaledDotProductAttention(temperature=in_pixels ** 0.5)
-        
+
         #Batch normalization layer
         self.OutBN = nn.BatchNorm2d(num_features=num_features)
-        self.BN = nn.BatchNorm2d(num_features=num_features)
+
     def forward(self, v, k, q, mask=None):
         # Reshaping matrixes to 2D
         # q = b, c_q, h*w
@@ -449,7 +449,9 @@ class MultiHeadAttention(nn.Module):
         k = k.view(b, c, h*w)
         v = v.view(b, c, h*w)
 
-       
+        #Save V
+        output = v
+
         # Pass through the pre-attention projection: b x lq x (n*dv)
         # Separate different heads: b x lq x n x dv
         q = self.w_qs(q).view(b, c, n_head, linear_dim)
@@ -468,12 +470,9 @@ class MultiHeadAttention(nn.Module):
         # Transpose to move the head dimension back: b x lq x n x dv
         # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
         v_attn = v_attn.transpose(1, 2).contiguous().view(b, c, n_head * linear_dim)
-
-
-        output = v_attn
-
-        v_attn = self.BN(v_attn)
         v_attn = self.fc(v_attn)
+        
+        
         output = output + v_attn
         #output  = v_attn
 
