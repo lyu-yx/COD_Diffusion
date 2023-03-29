@@ -437,7 +437,8 @@ class MultiHeadAttention(nn.Module):
         
         #Batch normalization layer
         self.OutBN = nn.BatchNorm2d(num_features=num_features)
-        self.BN = nn.BatchNorm2d(num_features=num_features)
+        #self.BN = nn.BatchNorm2d(num_features=num_features)
+        self.BN_1D = nn.BatchNorm1d(num_features=num_features)
     def forward(self, v, k, q, mask=None, emb=None):
         # Reshaping matrixes to 2D
         # q = b, c_q, h*w
@@ -456,11 +457,11 @@ class MultiHeadAttention(nn.Module):
         # Pass through the pre-attention projection: b x lq x (n*dv)
         # Separate different heads: b x lq x n x dv
         q = self.w_qs(q).view(b, c, n_head, linear_dim)
-        q = self.BN_linear(linear_dim)
+        q = self.BN_linear(q)
         k = self.w_ks(k).view(b, c, n_head, linear_dim)
-        k = self.BN_linear(linear_dim)
+        k = self.BN_linear(k)
         v = self.w_vs(v).view(b, c, n_head, linear_dim)
-        v = self.BN_linear(linear_dim)
+        v = self.BN_linear(v)
 
         # Transpose for attention dot product: b x n x lq x dv
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
@@ -478,7 +479,7 @@ class MultiHeadAttention(nn.Module):
 
         output = v_attn
 
-        v_attn = self.BN(v_attn)
+        v_attn = self.BN_1D(v_attn)
         v_attn = self.fc(v_attn, emb)
         output = output + v_attn
         #output  = v_attn
@@ -1141,10 +1142,10 @@ class IntegratedUNetModel(nn.Module):
         self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=64) 
 
 
-        self.transformer_encoder1 = MultiHeadAttention(4, 11**2, 32, 512) # 11^2
-        self.transformer_encoder2 = MultiHeadAttention(8, 22**2, 64, 320) # 11^2
-        self.transformer_encoder3 = MultiHeadAttention(16, 44**2, 128, 128) # 11^2
-        self.transformer_encoder4 = MultiHeadAttention(32, 88**2, 256, 64) # 11^2
+        self.transformer_encoder1 = MultiHeadAttention(11, 11**2, 11, 512) # 11^2
+        self.transformer_encoder2 = MultiHeadAttention(11, 22**2, 44, 320) 
+        self.transformer_encoder3 = MultiHeadAttention(22, 44**2, 88, 128) 
+        self.transformer_encoder4 = MultiHeadAttention(44, 88**2, 176, 64) 
         self.dimension_extension = DimensionalExtention(64, 128)
         
         # self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
