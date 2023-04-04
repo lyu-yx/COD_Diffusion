@@ -1565,27 +1565,7 @@ class IntegratedUNetModel_NoTransformer(nn.Module):
 
         h = self.middle_block(h, emb)
         
-        # pgfr1_out, edge1 = self.pgfr1(fb4)
-        h = self.cdff1(fb4, h)
-        h = self.dr2(th.cat([h, hs.pop()], dim=1))
-        # pgfr1_out = self.pgfr1_up(pgfr1_out)
 
-        # pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
-        h = self.cdff2(fb3, h)
-        h = self.dr3(th.cat([h, hs.pop()], dim=1))
-        # pgfr2_out = self.pgfr2_up(pgfr2_out)
-
-        # pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
-        h = self.cdff3(fb2, h)
-        h = self.dr4(th.cat([h, hs.pop()], dim=1))
-        # pgfr3_out = self.pgfr3_up(pgfr3_out)
-
-        # pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
-        h = self.cdff4(fb1, h)
-        
-
-
-        
         V1, K1, Q1 = h, h, fb4
         h = self.transformer_encoder1(V1, K1, Q1)
         h = self.upsample_s1(h)
