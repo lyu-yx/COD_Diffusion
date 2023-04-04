@@ -424,15 +424,15 @@ class MultiHeadAttention(nn.Module):
 
         #Linear layers
 
-        self.w_qs   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for queries
-        self.w_ks   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for keys
-        self.w_vs   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for values
-        self.fc     = TimestepEmbedSequential(nn.Linear(n_head * linear_dim, in_pixels, bias=False)) #Final fully connected layer
+        self.w_qs   = TimestepEmbedSequential(nn.Linear(in_pixels, n_head * linear_dim, bias=False)) #Linear layer for queries
+        self.w_ks   = TimestepEmbedSequential(nn.Linear(in_pixels, n_head * linear_dim, bias=False)) #Linear layer for keys
+        self.w_vs   = TimestepEmbedSequential(nn.Linear(in_pixels, n_head * linear_dim, bias=False)) #Linear layer for values
+        self.fc     = nn.Linear(n_head * linear_dim, in_pixels, bias=False) #Final fully connected layer
 
         # Layer Norm
         #self.BN_linear = nn.BatchNorm2d(num_features=num_features)
-        self.LN_linear = nn.LayerNorm([in_pixels, n_head, linear_dim])
-        self.LN_mlp = nn.LayerNorm([in_pixels, n_head*linear_dim])
+        self.LN_linear = nn.LayerNorm([num_features, n_head, linear_dim])
+        self.LN_mlp = nn.LayerNorm([num_features, n_head*linear_dim])
         #Scaled dot product attention
         self.attention = ScaledDotProductAttention(temperature=in_pixels ** 0.5)
         
@@ -460,9 +460,9 @@ class MultiHeadAttention(nn.Module):
         q = self.w_qs(q).view(b, c, n_head, linear_dim)
         q = self.LN_linear(q)
         k = self.w_ks(k).view(b, c, n_head, linear_dim)
-        k = self.LN_linear(c, n_head, linear_dim)
+        k = self.LN_linear(k)
         v = self.w_vs(v).view(b, c, n_head, linear_dim)
-        v = self.LN_linear(c, n_head, linear_dim)
+        v = self.LN_linear(v)
 
         # Transpose for attention dot product: b x n x lq x dv
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
@@ -481,7 +481,8 @@ class MultiHeadAttention(nn.Module):
         output = v_attn
 
         v_attn = self.LN_mlp(v_attn)
-        v_attn = self.fc(v_attn, emb)
+        v_attn = self.fc(v_attn)
+        
         output = output + v_attn
         #output  = v_attn
         #Reshape output to original image format
@@ -1135,11 +1136,11 @@ class IntegratedUNetModel(nn.Module):
         self.pgfr1 = PriorGuidedFeatureRefinement(in_channel=512, out_channel=512)
         self.pgfr2 = PriorGuidedFeatureRefinement(in_channel=320+512, out_channel=320)    # curr PGFR + last PGFR
         self.pgfr3 = PriorGuidedFeatureRefinement(in_channel=128+320, out_channel=128)
-        self.pgfr4 = PriorGuidedFeatureRefinement(in_channel=64+128, out_channel=64)    
+        self.pgfr4 = PriorGuidedFeatureRefinement(in_channel=64+128, out_channel=128)    
 
         self.dr2 = DimensionalReduction(in_channel=512*2, out_channel=320)    #  U-net + U-net(after DR)
         self.dr3 = DimensionalReduction(in_channel=320+256, out_channel=128)
-        self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=64) 
+        self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=128) 
 
 
         self.transformer_encoder1 = MultiHeadAttention(11, 11**2, 11, 512) # n * linear_dim = h* w
@@ -1245,7 +1246,7 @@ class IntegratedUNetModel(nn.Module):
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         V4, K4, Q4 = h, h, pgfr4_out
         h = self.transformer_encoder4(V4, K4, Q4, emb=emb)
-        h = self.dimension_extension(h)
+        # h = self.dimension_extension(h)
         h = self.upsample_s4(h)
         
         

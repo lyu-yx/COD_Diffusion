@@ -423,7 +423,6 @@ class MultiHeadAttention(nn.Module):
         self.linear_dim     = linear_dim    #Dim of linear-layer (outputs)
 
         #Linear layers
-
         self.w_qs   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for queries
         self.w_ks   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for keys
         self.w_vs   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for values
