@@ -11,9 +11,9 @@ from guided_diffusion import dist_util, logger
 from guided_diffusion.dataset import CamObjDataset, get_loader, test_dataset
 from guided_diffusion.resample import create_named_schedule_sampler
 # from guided_diffusion.bratsloader import BRATSDataset
-from guided_diffusion.script_util_transformer_old import (
+from guided_diffusion.script_util_ablation import (
     model_and_diffusion_defaults,
-    create_model_and_diffusion,
+    create_model_and_diffusion_notransformer,
     args_to_dict,
     add_dict_to_argparser,
 )
@@ -38,7 +38,7 @@ def main():
     logger.configure()
 
     logger.log("creating model and diffusion...")
-    model, diffusion = create_model_and_diffusion(
+    model, diffusion = create_model_and_diffusion_notransformer(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
     if args.multi_gpu:
@@ -125,5 +125,5 @@ def create_argparser():
 
 
 if __name__ == "__main__":
-    wandb.init(project="Diffusion", name="transformer version")
+    wandb.init(project="Diffusion", name="train_no_transformer")
     main()

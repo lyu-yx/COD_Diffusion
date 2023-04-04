@@ -11,7 +11,7 @@ from guided_diffusion import dist_util, logger
 from guided_diffusion.dataset import CamObjDataset, get_loader, test_dataset
 from guided_diffusion.resample import create_named_schedule_sampler
 # from guided_diffusion.bratsloader import BRATSDataset
-from guided_diffusion.script_util import (
+from guided_diffusion.script_util_transformer_old import (
     model_and_diffusion_defaults,
     create_model_and_diffusion,
     args_to_dict,
@@ -55,12 +55,13 @@ def main():
     
     train_loader = get_loader(image_root=args.train_root + 'Imgs/',
                               gt_root=args.train_root + 'GT/',
-                            # edge_root=args.train_root + 'Edge/',
+                              edge_root=args.train_root + 'Edge/',
                               batchsize=args.batch_size,
                               trainsize=args.train_size,
                               num_workers=4)
     val_loader = test_dataset(image_root=args.val_root + 'Imgs/',
                               gt_root=args.val_root + 'GT/',
+                              edge_root=args.val_root + 'Edge/',
                               testsize=args.test_size)
     data = iter(train_loader)
 
@@ -85,9 +86,12 @@ def main():
         schedule_sampler=schedule_sampler,
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
+        save_pth=args.model_save_folder,
+        edge_partition = args.edge_partition,
         single_visimg_pth=args.single_visimg_pth,
         single_visgt_pth=args.single_visgt_pth,
     ).run_loop()
+
 
 def create_argparser():
     defaults = dict(
@@ -109,6 +113,8 @@ def create_argparser():
         fp16_scale_growth=1e-3,
         gpu_dev = "0",
         multi_gpu = "0,1,2,3", # "0,1,2"
+        model_save_folder= "",
+        edge_partition = 0.002,
         single_visimg_pth="../BUDG/dataset/TestDataset/COD10K/Imgs/COD10K-CAM-1-Aquatic-1-BatFish-4.jpg",
         single_visgt_pth= "../BUDG/dataset/TestDataset/COD10K/GT/COD10K-CAM-1-Aquatic-1-BatFish-4.png",
     )                     
@@ -119,5 +125,5 @@ def create_argparser():
 
 
 if __name__ == "__main__":
-    wandb.init(project="Diffusion", name="diffusion_only")
+    wandb.init(project="Diffusion", name="transformer old")
     main()

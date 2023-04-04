@@ -621,18 +621,6 @@ class UNetModel(nn.Module):
             zero_module(conv_nd(dims, model_channels, out_channels, 3, padding=1)),
         )
 
-        # # for edge feature extraction using PVT
-        # path = './results/pvt_v2_b2.pth'
-        # save_model = th.load(path)
-        # model_dict = self.edge_bb.state_dict()
-        # state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
-        # model_dict.update(state_dict)
-        # self.edge_bb.load_state_dict(model_dict)
-
-        # self.pgfr1 = PriorGuidedFeatureRefinement(in_channel=512, out_channel=512)
-        # self.pgfr2 = PriorGuidedFeatureRefinement(in_channel=320+512, out_channel=320)
-        # self.pgfr3 = PriorGuidedFeatureRefinement(in_channel=128+320, out_channel=128)
-        # self.pgfr4 = PriorGuidedFeatureRefinement(in_channel=64+128, out_channel=64)
 
     def convert_to_fp16(self):
         """
@@ -669,25 +657,6 @@ class UNetModel(nn.Module):
         if self.num_classes is not None:
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
-
-        # # for edge feature extraction 
-        # in_channel_list = [128, 320, 512]
-        # channel = 32
-        # pvt = self.edge_bb(x[:, :-1, ...])
-        # fb1 = pvt[0]
-        # fb2 = pvt[1]
-        # fb3 = pvt[2]
-        # fb4 = pvt[3]
-
-        # self.dr1 = DimensionalReduction(in_channel=in_channel_list[0], out_channel=channel)
-        # self.dr2 = DimensionalReduction(in_channel=in_channel_list[1], out_channel=channel)
-        # self.dr3 = DimensionalReduction(in_channel=in_channel_list[2], out_channel=channel)
-
-        # xr3 = self.dr1(fb2)
-        # xr4 = self.dr2(fb3)
-        # xr5 = self.dr3(fb4)
-
-        # edge = self.eem(fb2, fb4)
 
         h = x.type(self.dtype)
         for module in self.input_blocks:
