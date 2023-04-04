@@ -430,15 +430,16 @@ class MultiHeadAttention(nn.Module):
         self.fc     = TimestepEmbedSequential(nn.Linear(n_head * linear_dim, in_pixels, bias=False)) #Final fully connected layer
 
         # Layer Norm
-        self.BN_linear = nn.BatchNorm2d(num_features=num_features)
-
+        #self.BN_linear = nn.BatchNorm2d(num_features=num_features)
+        self.LN_linear = nn.LayerNorm([in_pixels, n_head, linear_dim])
+        self.LN_mlp = nn.LayerNorm([in_pixels, n_head*linear_dim])
         #Scaled dot product attention
         self.attention = ScaledDotProductAttention(temperature=in_pixels ** 0.5)
         
         #Batch normalization layer
-        self.OutBN = nn.BatchNorm2d(num_features=num_features)
+        # self.OutBN = nn.BatchNorm2d(num_features=num_features)
         #self.BN = nn.BatchNorm2d(num_features=num_features)
-        self.BN_1D = nn.BatchNorm1d(num_features=num_features)
+        # self.BN_1D = nn.BatchNorm1d(num_features=num_features)
     def forward(self, v, k, q, mask=None, emb=None):
         # Reshaping matrixes to 2D
         # q = b, c_q, h*w
@@ -457,11 +458,11 @@ class MultiHeadAttention(nn.Module):
         # Pass through the pre-attention projection: b x lq x (n*dv)
         # Separate different heads: b x lq x n x dv
         q = self.w_qs(q).view(b, c, n_head, linear_dim)
-        q = self.BN_linear(q)
+        q = self.LN_linear(q)
         k = self.w_ks(k).view(b, c, n_head, linear_dim)
-        k = self.BN_linear(k)
+        k = self.LN_linear(c, n_head, linear_dim)
         v = self.w_vs(v).view(b, c, n_head, linear_dim)
-        v = self.BN_linear(v)
+        v = self.LN_linear(c, n_head, linear_dim)
 
         # Transpose for attention dot product: b x n x lq x dv
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
@@ -479,17 +480,16 @@ class MultiHeadAttention(nn.Module):
 
         output = v_attn
 
-        v_attn = self.BN_1D(v_attn)
+        v_attn = self.LN_mlp(v_attn)
         v_attn = self.fc(v_attn, emb)
         output = output + v_attn
         #output  = v_attn
-
         #Reshape output to original image format
         output = output.view(b, c, h, w)
 
         #We can consider batch-normalization here,,,
         #Will complete it later
-        output = self.OutBN(output)
+        #output = self.LN_linear(output)
         return output
 
 
@@ -1142,7 +1142,7 @@ class IntegratedUNetModel(nn.Module):
         self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=64) 
 
 
-        self.transformer_encoder1 = MultiHeadAttention(11, 11**2, 11, 512) # 11^2
+        self.transformer_encoder1 = MultiHeadAttention(11, 11**2, 11, 512) # n * linear_dim = h* w
         self.transformer_encoder2 = MultiHeadAttention(11, 22**2, 44, 320) 
         self.transformer_encoder3 = MultiHeadAttention(22, 44**2, 88, 128) 
         self.transformer_encoder4 = MultiHeadAttention(44, 88**2, 176, 64) 
