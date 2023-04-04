@@ -512,6 +512,105 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
         return x
 
 
+class ScaledDotProductAttention(nn.Module):
+    ''' Scaled Dot-Product Attention '''
+
+    def __init__(self, temperature):
+        super().__init__()
+        self.temperature = temperature
+
+    def forward(self, v, k, q, mask=None):
+        # Compute attention
+        attn = th.matmul(q / self.temperature, k.transpose(-2, -1))
+
+        if mask is not None:
+            attn = attn.masked_fill(mask == 0, -1e9)
+
+        # Normalization (SoftMax)
+        attn    = F.softmax(attn, dim=-1)
+
+        # Attention output
+        output  = th.matmul(attn, v)
+        return output
+
+
+class MultiHeadAttention(nn.Module):
+    ''' Multi-Head Attention module for Hyperspectral Pansharpening (Image Fusion) '''
+
+    def __init__(self, n_head, in_pixels, linear_dim, num_features):
+        super().__init__()
+        #Parameters
+        self.n_head         = n_head        #No of heads
+        self.in_pixels      = in_pixels     #No of pixels in the input image
+        self.linear_dim     = linear_dim    #Dim of linear-layer (outputs)
+
+        #Linear layers
+
+        self.w_qs   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for queries
+        self.w_ks   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for keys
+        self.w_vs   = nn.Linear(in_pixels, n_head * linear_dim, bias=False) #Linear layer for values
+        self.fc     = nn.Linear(n_head * linear_dim, in_pixels, bias=False) #Final fully connected layer
+
+        #Scaled dot product attention
+        self.attention = ScaledDotProductAttention(temperature=in_pixels ** 0.5)
+
+        #Batch normalization layer
+        self.OutBN = nn.BatchNorm2d(num_features=num_features)
+
+    def forward(self, v, k, q, mask=None):
+        # Reshaping matrixes to 2D
+        # q = b, c_q, h*w
+        # k = b, c_k, h*w
+        # v = b, c_v, h*w
+        b, c, h, w      = q.size(0), q.size(1), q.size(2), q.size(3)
+        n_head          = self.n_head
+        linear_dim      = self.linear_dim
+
+        # Reshaping K, Q, and Vs...
+        q = q.view(b, c, h*w)
+        k = k.view(b, c, h*w)
+        v = v.view(b, c, h*w)
+
+        #Save V
+        output = v
+
+        # Pass through the pre-attention projection: b x lq x (n*dv)
+        # Separate different heads: b x lq x n x dv
+        q = self.w_qs(q).view(b, c, n_head, linear_dim)
+        k = self.w_ks(k).view(b, c, n_head, linear_dim)
+        v = self.w_vs(v).view(b, c, n_head, linear_dim)
+
+        # Transpose for attention dot product: b x n x lq x dv
+        q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
+
+        if mask is not None:
+            mask = mask.unsqueeze(1)   # For head axis broadcasting.
+
+        # Computing ScaledDotProduct attention for each head
+        v_attn = self.attention(v, k, q, mask=mask)
+
+        # Transpose to move the head dimension back: b x lq x n x dv
+        # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
+        v_attn = v_attn.transpose(1, 2).contiguous().view(b, c, n_head * linear_dim)
+        v_attn = self.fc(v_attn)
+        
+        
+        output = output + v_attn
+        #output  = v_attn
+
+        #Reshape output to original image format
+        output = output.view(b, c, h, w)
+
+        #We can consider batch-normalization here,,,
+        #Will complete it later
+        output = self.OutBN(output)
+        return output
+
+
+
+
+
+
 ################################################################################
 #                       Main Stricture of Predicting                           #
 ################################################################################
@@ -841,6 +940,10 @@ class IntegratedUNetModel_NoCDFF(nn.Module):
         return out, (self.upsample_32(edge1), self.upsample_16(edge2), self.upsample_8(edge3), self.upsample_4(edge4))
 
 
+################################################################################
+#                          Effetiveness of PGFR                                #
+################################################################################
+
 class IntegratedUNetModel_NoPGFR(nn.Module):
     """
     The half UNet model with attention and timestep embedding.
@@ -1150,6 +1253,365 @@ class IntegratedUNetModel_NoPGFR(nn.Module):
         # pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         h = self.cdff4(fb1, h)
         
+
+        h = th.cat([h, hs.pop()], dim=1)
+        for module in self.out_layer5:
+            h = module(h, emb)
+
+        h = th.cat([h, hs.pop()], dim=1)
+        for module in self.out_layer6:
+            h = module(h, emb)
+        
+        out = self.out(h)
+        b = out.size()[0]
+        h = out.size()[2]
+        w = out.size()[3]
+        return out, (th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"))
+
+
+
+################################################################################
+#                          Effetiveness of Transformer                         #
+################################################################################
+
+class IntegratedUNetModel_NoTransformer(nn.Module):
+    """
+    The half UNet model with attention and timestep embedding.
+
+    For usage, see UNet.
+    """
+
+    def __init__(
+        self,
+        image_size,
+        in_channels,
+        model_channels,
+        out_channels,
+        num_res_blocks,
+        attention_resolutions,
+        dropout=0,
+        channel_mult=(1, 2, 4, 8),
+        conv_resample=True,
+        dims=2,
+        num_classes=None,
+        use_checkpoint=False,
+        use_fp16=False,
+        num_heads=1,
+        num_head_channels=-1,
+        num_heads_upsample=-1,
+        use_scale_shift_norm=False,
+        resblock_updown=False,
+        use_new_attention_order=False,
+        pool="adaptive",
+    ):
+        
+        super().__init__()
+
+        if num_heads_upsample == -1:
+            num_heads_upsample = num_heads
+
+        self.image_size = image_size
+        self.in_channels = in_channels
+        self.model_channels = model_channels
+        self.out_channels = out_channels
+        self.num_res_blocks = num_res_blocks
+        self.attention_resolutions = attention_resolutions
+        self.dropout = dropout
+        self.channel_mult = channel_mult
+        self.conv_resample = conv_resample
+        self.use_checkpoint = use_checkpoint
+        self.dtype = th.float16 if use_fp16 else th.float32
+        self.num_heads = num_heads
+        self.num_head_channels = num_head_channels
+        self.num_heads_upsample = num_heads_upsample
+        self.edge_bb = pvt_v2_b2()
+        time_embed_dim = model_channels * 4
+        self.time_embed = nn.Sequential(
+            linear(model_channels, time_embed_dim),
+            nn.SiLU(),
+            linear(time_embed_dim, time_embed_dim),
+        )
+
+        self.input_blocks = nn.ModuleList(
+            [
+                TimestepEmbedSequential(
+                    conv_nd(dims, in_channels, model_channels, 3, padding=1)
+                )
+            ]
+        )
+        self._feature_size = model_channels
+        input_block_chans = [model_channels]
+        ch = model_channels
+        ds = 1
+        for level, mult in enumerate(channel_mult):
+            for _ in range(num_res_blocks):
+                layers = [
+                    ResBlock(
+                        ch,
+                        time_embed_dim,
+                        dropout,
+                        out_channels=mult * model_channels,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    )
+                ]
+                ch = mult * model_channels
+                if ds in attention_resolutions:
+                    layers.append(
+                        AttentionBlock(
+                            ch,
+                            use_checkpoint=use_checkpoint,
+                            num_heads=num_heads,
+                            num_head_channels=num_head_channels,
+                            use_new_attention_order=use_new_attention_order,
+                        )
+                    )
+                self.input_blocks.append(TimestepEmbedSequential(*layers))
+                self._feature_size += ch
+                input_block_chans.append(ch)
+            if level != len(channel_mult) - 1:
+                out_ch = ch
+                self.input_blocks.append(
+                    TimestepEmbedSequential(
+                        ResBlock(
+                            ch,
+                            time_embed_dim,
+                            dropout,
+                            out_channels=out_ch,
+                            dims=dims,
+                            use_checkpoint=use_checkpoint,
+                            use_scale_shift_norm=use_scale_shift_norm,
+                            down=True,
+                        )
+                        if resblock_updown
+                        else Downsample(
+                            ch, conv_resample, dims=dims, out_channels=out_ch
+                        )
+                    )
+                )
+                ch = out_ch
+                input_block_chans.append(ch)
+                ds *= 2
+                self._feature_size += ch
+
+        self.middle_block = TimestepEmbedSequential(
+            ResBlock(
+                ch,
+                time_embed_dim,
+                dropout,
+                dims=dims,
+                use_checkpoint=use_checkpoint,
+                use_scale_shift_norm=use_scale_shift_norm,
+            ),
+            AttentionBlock(
+                ch,
+                use_checkpoint=use_checkpoint,
+                num_heads=num_heads,
+                num_head_channels=num_head_channels,
+                use_new_attention_order=use_new_attention_order,
+            ),
+            ResBlock(
+                ch,
+                time_embed_dim,
+                dropout,
+                dims=dims,
+                use_checkpoint=use_checkpoint,
+                use_scale_shift_norm=use_scale_shift_norm,
+            ),
+        )
+        self._feature_size += ch
+
+        self.out_layer5 =  nn.ModuleList([])
+        layer5 = [  ResBlock(
+                        128*2,    # channel
+                        time_embed_dim,
+                        dropout,
+                        out_channels=256,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    ),
+                    ResBlock(
+                        128*2,
+                        time_embed_dim,
+                        dropout,
+                        out_channels=256,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    ),
+                    ResBlock(
+                            128*2,
+                            time_embed_dim,
+                            dropout,
+                            out_channels=128,
+                            dims=dims,
+                            use_checkpoint=use_checkpoint,
+                            use_scale_shift_norm=use_scale_shift_norm,
+                            up=True,
+                        )
+                ]
+        self.out_layer5.append(TimestepEmbedSequential(*layer5))
+        
+        self.out_layer6 =  nn.ModuleList([])
+        layer6 = [  ResBlock(
+                        128*2,    # channel
+                        time_embed_dim,
+                        dropout,
+                        out_channels=256,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    ),
+                    ResBlock(
+                        128*2,
+                        time_embed_dim,
+                        dropout,
+                        out_channels=256,
+                        dims=dims,
+                        use_checkpoint=use_checkpoint,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    )
+                ]
+        self.out_layer6.append(TimestepEmbedSequential(*layer6))
+        
+        
+        self.out = nn.Sequential(
+            normalization(256),
+            nn.SiLU(),
+            zero_module(conv_nd(2, 256, 2, 3, padding=1)),
+        )
+
+
+
+        path = './results/pvt_v2_b2.pth'
+        save_model = th.load(path)
+        model_dict = self.edge_bb.state_dict()
+        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.edge_bb.load_state_dict(model_dict)
+
+
+        self.dr2 = DimensionalReduction(in_channel=512*2, out_channel=320)    #  U-net + U-net(after DR)
+        self.dr3 = DimensionalReduction(in_channel=320+256, out_channel=128)
+        self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=64) 
+
+        
+        self.transformer_encoder1 = MultiHeadAttention(4, 11**2, 32, 512) # 11^2
+        self.transformer_encoder2 = MultiHeadAttention(8, 22**2, 64, 320) # 11^2
+        self.transformer_encoder3 = MultiHeadAttention(16, 44**2, 128, 128) # 11^2
+        self.transformer_encoder4 = MultiHeadAttention(32, 88**2, 256, 64) # 11^2
+        self.dimension_extension = DimensionalExtention(64, 128)
+
+
+        # self.dr1 = DimensionalReduction(in_channel=512, out_channel=512)
+        self.upsample_s1 = Upsample(512, False, dims=2)
+        self.upsample_s2 = Upsample(320, False, dims=2)
+        self.upsample_s3 = Upsample(128, False, dims=2)
+        self.upsample_s4 = Upsample(128, False, dims=2)
+
+        self.upsample_32 = nn.Upsample(scale_factor=32, mode='bilinear', align_corners=True)
+        self.upsample_16 = nn.Upsample(scale_factor=16, mode='bilinear', align_corners=True)
+        self.upsample_8 = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
+        self.upsample_4 = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
+
+    def convert_to_fp16(self):
+        """
+        Convert the torso of the model to float16.
+        """
+        self.input_blocks.apply(convert_module_to_f16)
+        self.middle_block.apply(convert_module_to_f16)
+
+    def convert_to_fp32(self):
+        """
+        Convert the torso of the model to float32.
+        """
+        self.input_blocks.apply(convert_module_to_f32)
+        self.middle_block.apply(convert_module_to_f32)
+
+
+
+    def forward(self, x, timesteps):
+        """
+        Apply the model to an input batch.
+
+        :param x: an [N x C x ...] Tensor of inputs.
+        :param timesteps: a 1-D batch of timesteps.
+        :return: an [N x K] Tensor of outputs.
+        """
+        hs = []
+        emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
+
+        # if self.num_classes is not None:
+        #     assert y.shape == (x.shape[0],)
+        #     emb = emb + self.label_emb(y)
+
+        # for edge feature extraction 
+        # in_channel_list = [64, 128, 320, 512]
+        # channel = 32
+        pvt = self.edge_bb(x[:, :-1, ...])
+        fb1 = pvt[0]
+        fb2 = pvt[1]
+        fb3 = pvt[2]
+        fb4 = pvt[3]
+
+        h = x.type(self.dtype)
+        for idx, module in enumerate(self.input_blocks):
+            h = module(h, emb)
+            if (idx-1)%(self.num_res_blocks+1)==0:
+                hs.append(h)
+        hs.pop()
+
+        h = self.middle_block(h, emb)
+        
+        # pgfr1_out, edge1 = self.pgfr1(fb4)
+        h = self.cdff1(fb4, h)
+        h = self.dr2(th.cat([h, hs.pop()], dim=1))
+        # pgfr1_out = self.pgfr1_up(pgfr1_out)
+
+        # pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
+        h = self.cdff2(fb3, h)
+        h = self.dr3(th.cat([h, hs.pop()], dim=1))
+        # pgfr2_out = self.pgfr2_up(pgfr2_out)
+
+        # pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
+        h = self.cdff3(fb2, h)
+        h = self.dr4(th.cat([h, hs.pop()], dim=1))
+        # pgfr3_out = self.pgfr3_up(pgfr3_out)
+
+        # pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
+        h = self.cdff4(fb1, h)
+        
+
+
+        
+        V1, K1, Q1 = h, h, fb4
+        h = self.transformer_encoder1(V1, K1, Q1)
+        h = self.upsample_s1(h)
+        h = self.dr2(th.cat([h, hs.pop()], dim=1))
+
+
+
+        V2, K2, Q2 = h, h, fb3
+        h = self.transformer_encoder2(V2, K2, Q2)
+        h = self.upsample_s2(h)
+        h = self.dr3(th.cat([h, hs.pop()], dim=1))
+
+
+
+        V3, K3, Q3 = h, h, fb2
+        h = self.transformer_encoder3(V3, K3, Q3)
+        h = self.upsample_s3(h)
+        h = self.dr4(th.cat([h, hs.pop()], dim=1))
+
+
+
+        V4, K4, Q4 = h, h, fb1
+        h = self.transformer_encoder4(V4, K4, Q4)
+        h = self.dimension_extension(h)
+        h = self.upsample_s4(h)
+
 
         h = th.cat([h, hs.pop()], dim=1)
         for module in self.out_layer5:
