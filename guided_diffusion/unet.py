@@ -667,7 +667,12 @@ class UNetModel(nn.Module):
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
         h = h.type(x.dtype)
-        return self.out(h)
+        out = self.out(h)
+        b = out.size()[0]
+        h = out.size()[2]
+        w = out.size()[3]
+
+        return out, (th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"))
 
 
 
