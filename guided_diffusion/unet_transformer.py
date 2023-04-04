@@ -457,11 +457,11 @@ class MultiHeadAttention(nn.Module):
        
         # Pass through the pre-attention projection: b x lq x (n*dv)
         # Separate different heads: b x lq x n x dv
-        q = self.w_qs(q).view(b, c, n_head, linear_dim)
+        q = self.w_qs(q, emb).view(b, c, n_head, linear_dim)
         q = self.LN_linear(q)
-        k = self.w_ks(k).view(b, c, n_head, linear_dim)
+        k = self.w_ks(k, emb).view(b, c, n_head, linear_dim)
         k = self.LN_linear(k)
-        v = self.w_vs(v).view(b, c, n_head, linear_dim)
+        v = self.w_vs(v, emb).view(b, c, n_head, linear_dim)
         v = self.LN_linear(v)
 
         # Transpose for attention dot product: b x n x lq x dv
@@ -1146,8 +1146,8 @@ class IntegratedUNetModel(nn.Module):
         self.transformer_encoder1 = MultiHeadAttention(11, 11**2, 11, 512) # n * linear_dim = h* w
         self.transformer_encoder2 = MultiHeadAttention(11, 22**2, 44, 320) 
         self.transformer_encoder3 = MultiHeadAttention(22, 44**2, 88, 128) 
-        self.transformer_encoder4 = MultiHeadAttention(44, 88**2, 176, 64) 
-        self.dimension_extension = DimensionalExtention(64, 128)
+        self.transformer_encoder4 = MultiHeadAttention(44, 88**2, 176, 128) 
+        # self.dimension_extension = DimensionalExtention(64, 128)
         
         # self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
         # self.cdff2 = CrossDomainFeatureFusion(cat_channel=320*2, out_channel=320)
@@ -1220,8 +1220,6 @@ class IntegratedUNetModel(nn.Module):
         h = self.middle_block(h, emb)
         
 
-
-        
         pgfr1_out, edge1 = self.pgfr1(fb4)
         V1, K1, Q1 = h, h, pgfr1_out
         h = self.transformer_encoder1(V1, K1, Q1, emb=emb)
