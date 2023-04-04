@@ -4,7 +4,7 @@ import inspect
 from . import gaussian_diffusion as gd
 from .respace import SpacedDiffusion, space_timesteps
 # from .unet import SuperResModel, UNetModel, IntegratedUNetModel
-from .unet_ablation import IntegratedUNetModel_NoCDFF, IntegratedUNetModel_NoPGFR, IntegratedUNetModel_NoTransformer
+from .unet_ablation import IntegratedUNetModel_NoCDFF, IntegratedUNetModel_NoPGFR, IntegratedUNetModel_Transformer_only
 
 NUM_CLASSES = 2
 
@@ -287,7 +287,7 @@ def create_model_notransformer(
     for res in attention_resolutions.split(","):
         attention_ds.append(image_size // int(res))
 
-    return IntegratedUNetModel_NoTransformer(
+    return IntegratedUNetModel_Transformer_only(
         image_size=image_size,
         in_channels=4,
         model_channels=num_channels,

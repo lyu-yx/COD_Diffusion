@@ -1274,7 +1274,7 @@ class IntegratedUNetModel_NoPGFR(nn.Module):
 #                          Effetiveness of Transformer                         #
 ################################################################################
 
-class IntegratedUNetModel_NoTransformer(nn.Module):
+class IntegratedUNetModel_Transformer_only(nn.Module):
     """
     The half UNet model with attention and timestep embedding.
 
