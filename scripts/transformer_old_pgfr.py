@@ -125,5 +125,5 @@ def create_argparser():
 
 
 if __name__ == "__main__":
-    wandb.init(project="Diffusion", name="transformer old")
+    wandb.init(project="Diffusion", name="transformer old pgfr")
     main()
