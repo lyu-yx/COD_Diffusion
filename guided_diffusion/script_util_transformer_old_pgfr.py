@@ -4,7 +4,7 @@ import inspect
 from . import gaussian_diffusion as gd
 from .respace import SpacedDiffusion, space_timesteps
 # from .unet import SuperResModel, UNetModel, IntegratedUNetModel
-from .unet_transformer_LN import IntegratedUNetModel
+from .unet_transformer_old_pgfr import IntegratedUNetModel
 
 NUM_CLASSES = 2
 
