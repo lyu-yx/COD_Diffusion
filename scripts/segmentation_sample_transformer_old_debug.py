@@ -118,20 +118,14 @@ def main():
             output = (output - output.min()) / (output.max() - output.min() + 1e-8)
             output[output <= threshold] = 0
             output[output > threshold] = 1
-            output = sitk.Cast(sitk.GetImageFromArray(output), sitk.sitkUInt8)
-            sample_arrays.append(output)
             plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
-        
-        
+
         images = [array for array in sample_arrays]
 
-        # ref
-        # threshold = 128
-        # binary_ref = sitk.BinaryThreshold(images[0], lowerThreshold=threshold, upperThreshold=255, insideValue=1, outsideValue=0)
-
-        # staple_result = sitk.STAPLE(images, foregroundValue) # change staple reference
-        staple_result = sitk.STAPLE(images, images[0])
+        # STAPLE(VectorOfImage images, double confidenceWeight=1.0, double foregroundValue=1.0, unsigned int maximumIterations=std::numeric_limits< unsigned int >::max()) -> Image
+        staple_result = sitk.STAPLE(images, confidenceWeight=2.0)
         
+
         threshold_filter = sitk.BinaryThresholdImageFilter()
         threshold_filter.SetLowerThreshold(0.5)
         threshold_filter.SetUpperThreshold(1.0)
