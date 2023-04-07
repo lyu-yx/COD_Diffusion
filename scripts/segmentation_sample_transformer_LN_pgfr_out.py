@@ -26,7 +26,7 @@ from guided_diffusion.dataset import test_dataset as EvalDataset
 # from guided_diffusion.bratsloader import BRATSDataset
 import guided_diffusion.staple as staple
 
-from guided_diffusion.script_util_transformer import (
+from guided_diffusion.script_util_transformer_LN_pgfr_out import (
     NUM_CLASSES,
     model_and_diffusion_defaults,
     create_model_and_diffusion,
