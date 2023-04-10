@@ -424,18 +424,18 @@ class MultiHeadAttention(nn.Module):
 
         #Linear layers
 
-        self.w_qs   = nn.Linear(num_features, n_head * linear_dim, bias=False) #Linear layer for queries
+        self.w_qs   = nn.Linear(in_pixels + 1, n_head * linear_dim, bias=False) #Linear layer for queries
         self.w_qs_pos   = nn.Parameter(th.randn(num_features, in_pixels + 1) / num_features ** 0.5) #Linear layer for queries
         
-        self.w_ks   = nn.Linear(num_features, n_head * linear_dim, bias=False) #Linear layer for keys
+        self.w_ks   = nn.Linear(in_pixels + 1, n_head * linear_dim, bias=False) #Linear layer for keys
         self.w_ks_pos   = nn.Parameter(th.randn(num_features, in_pixels + 1) / num_features ** 0.5) #Linear layer for queries
         
-        self.w_vs   = nn.Linear(num_features, n_head * linear_dim, bias=False) #Linear layer for values
+        self.w_vs   = nn.Linear(in_pixels + 1, n_head * linear_dim, bias=False) #Linear layer for values
         self.w_vs_pos   = nn.Parameter(th.randn(num_features, in_pixels + 1) / num_features ** 0.5) #Linear layer for queries
         
         self.fc     = nn.Linear(n_head * linear_dim, in_pixels, bias=False) #Final fully connected layer
         
-        x = th.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(HW+1)
+        
         # Layer Norm
         #self.BN_linear = nn.BatchNorm2d(num_features=num_features)
         self.LN_linear = nn.LayerNorm([num_features, n_head, linear_dim])
@@ -485,19 +485,12 @@ class MultiHeadAttention(nn.Module):
 
         if mask is not None:
             mask = mask.unsqueeze(1)   # For head axis broadcasting.
-
-
-
-        x = th.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(HW+1)
-        x = x + self.positional_embedding[None, :, :].to(x.dtype)  # NC(HW+1)
-
         # Computing ScaledDotProduct attention for each head
         v_attn = self.attention(v, k, q, mask=mask)
 
         # Transpose to move the head dimension back: b x c x n x linear dim
         # Combine the last two dimensions to concatenate all the heads together: b x c x (n*linear dim)
         v_attn = v_attn.transpose(1, 2).contiguous().view(b, c, n_head * linear_dim)
-
 
         output = v_attn
 
@@ -1168,10 +1161,10 @@ class IntegratedUNetModel(nn.Module):
         self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=128) 
 
         
-        self.transformer_encoder1 = MultiHeadAttention(4, 11**2, 64, 512) # n * linear_dim = h* w
-        self.transformer_encoder2 = MultiHeadAttention(4, 22**2, 256, 320) 
-        self.transformer_encoder3 = MultiHeadAttention(8, 44**2, 512, 128) 
-        self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 1024, 128) 
+        self.transformer_encoder1 = MultiHeadAttention(1, 11**2, 121, 512) # n * linear_dim = h* w
+        self.transformer_encoder2 = MultiHeadAttention(4, 22**2, 121, 320) 
+        self.transformer_encoder3 = MultiHeadAttention(8, 44**2, 242, 128) 
+        self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 968, 128) 
         # self.dimension_extension = DimensionalExtention(64, 128)
         
         # self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
