@@ -134,10 +134,7 @@ def main():
         binary_staple = threshold_filter.Execute(staple_result)
         binary_staple = sitk.GetArrayFromImage(binary_staple) 
 
-
         
-        
-        # result = (staple_result - staple_result.min()) / (staple_result.max() - staple_result.min() + 1e-8)
         
         plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', binary_staple, cmap='gist_gray') # save the generated mask
         

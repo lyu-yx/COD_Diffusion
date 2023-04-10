@@ -125,11 +125,17 @@ def main():
         
         images = [array for array in sample_arrays]
         staple_result = sitk.STAPLE(images, foregroundValue)
-        staple_result = sitk.GetArrayFromImage(staple_result) 
+        threshold_filter = sitk.BinaryThresholdImageFilter()
+        threshold_filter.SetLowerThreshold(0.75)
+        threshold_filter.SetUpperThreshold(1.0)
+        threshold_filter.SetInsideValue(1)
+        threshold_filter.SetOutsideValue(0)
+        binary_staple = threshold_filter.Execute(staple_result)
+        binary_staple = sitk.GetArrayFromImage(binary_staple) 
+
         
-        result = (staple_result - staple_result.min()) / (staple_result.max() - staple_result.min() + 1e-8)
         
-        plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', result, cmap='gist_gray') # save the generated mask
+        plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', binary_staple, cmap='gist_gray') # save the generated mask
         
         # end.record()
         # th.cuda.synchronize()
