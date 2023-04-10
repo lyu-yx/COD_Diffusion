@@ -126,7 +126,7 @@ def main():
         images = [array for array in sample_arrays]
         staple_result = sitk.STAPLE(images, foregroundValue)
         threshold_filter = sitk.BinaryThresholdImageFilter()
-        threshold_filter.SetLowerThreshold(0.5)
+        threshold_filter.SetLowerThreshold(0.75)
         threshold_filter.SetUpperThreshold(1.0)
         threshold_filter.SetInsideValue(1)
         threshold_filter.SetOutsideValue(0)
