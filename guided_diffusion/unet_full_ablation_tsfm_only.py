@@ -1156,37 +1156,14 @@ class IntegratedUNetModel(nn.Module):
         self.pgfr3 = PriorGuidedFeatureRefinement(in_channel=128+320, out_channel=128)
         self.pgfr4 = PriorGuidedFeatureRefinement(in_channel=64+128, out_channel=128)    
 
-        self.dr2 = DimensionalReduction(in_channel=512*2, out_channel=320)    #  U-net + U-net(after DR)
-        self.dr3 = DimensionalReduction(in_channel=320+256, out_channel=128)
-        self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=128) 
 
-        
         self.transformer_encoder1 = MultiHeadAttention(1, 11**2, 121, 512) # n * linear_dim = h* w
         self.transformer_encoder2 = MultiHeadAttention(4, 22**2, 121, 320) 
         self.transformer_encoder3 = MultiHeadAttention(8, 44**2, 242, 128) 
         self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 968, 128) 
-        # self.dimension_extension = DimensionalExtention(64, 128)
-        
-        # self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
-        # self.cdff2 = CrossDomainFeatureFusion(cat_channel=320*2, out_channel=320)
-        # self.cdff3 = CrossDomainFeatureFusion(cat_channel=128*2, out_channel=128)
-        # self.cdff4 = CrossDomainFeatureFusion(cat_channel=64*2, out_channel=128)    
+        self.dimension_extension = DimensionalExtention(64, 128)
 
-        self.pgfr1_up =  Upsample(512, False, dims=2)
-        self.pgfr2_up =  Upsample(320, False, dims=2)
-        self.pgfr3_up =  Upsample(128, False, dims=2)
-        # self.dr1 = DimensionalReduction(in_channel=512, out_channel=512)
-        
-        self.upsample_s1 = Upsample(512, False, dims=2)
-        self.upsample_s2 = Upsample(320, False, dims=2)
-        self.upsample_s3 = Upsample(128, False, dims=2)
-        self.upsample_s4 = Upsample(128, False, dims=2)
 
-        
-        self.upsample_32 = nn.Upsample(scale_factor=32, mode='bilinear', align_corners=True)
-        self.upsample_16 = nn.Upsample(scale_factor=16, mode='bilinear', align_corners=True)
-        self.upsample_8 = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
-        self.upsample_4 = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
 
     def convert_to_fp16(self):
         """
@@ -1260,9 +1237,9 @@ class IntegratedUNetModel(nn.Module):
         # pgfr3_out = self.pgfr3_up(pgfr3_out)
 
         # pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
+        fb1 = self.dimension_extension(fb1)
         V4, K4, Q4 = h, h, fb1
         h = self.transformer_encoder4(V4, K4, Q4, emb=emb)
-        # h = self.dimension_extension(h)
         h = self.upsample_s4(h)
         
         
