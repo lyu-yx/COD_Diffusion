@@ -125,16 +125,18 @@ def main():
         
         images = [array for array in sample_arrays]
         staple_result = sitk.STAPLE(images, foregroundValue)
-        staple_result = sitk.GetArrayFromImage(staple_result) 
-        
-        result = (staple_result - staple_result.min()) / (staple_result.max() - staple_result.min() + 1e-8)
-        
-        plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', result, cmap='gist_gray') # save the generated mask
-        
-        # end.record()
-        # th.cuda.synchronize()
-        # print('time for {} sample: {} second'.format(args.num_ensemble, start.elapsed_time(end)/1000))  #time measurement for the generation of 1 sample
+        threshold_filter = sitk.BinaryThresholdImageFilter()
+        threshold_filter.SetLowerThreshold(0.75)
+        threshold_filter.SetUpperThreshold(1.0)
+        threshold_filter.SetInsideValue(1)
+        threshold_filter.SetOutsideValue(0)
+        binary_staple = threshold_filter.Execute(staple_result)
+        binary_staple = sitk.GetArrayFromImage(binary_staple) 
 
+        
+        
+        plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', binary_staple, cmap='gist_gray') # save the generated mask
+        
 def create_argparser():
     defaults = dict(
         data_dir="../BUDG/dataset/TestDataset/CAMO/Imgs/",
