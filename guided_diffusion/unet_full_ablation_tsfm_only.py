@@ -1156,13 +1156,24 @@ class IntegratedUNetModel(nn.Module):
         self.pgfr3 = PriorGuidedFeatureRefinement(in_channel=128+320, out_channel=128)
         self.pgfr4 = PriorGuidedFeatureRefinement(in_channel=64+128, out_channel=128)    
 
+        self.dr2 = DimensionalReduction(in_channel=512*2, out_channel=320)    #  U-net + U-net(after DR)
+        self.dr3 = DimensionalReduction(in_channel=320+256, out_channel=128)
+        self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=128) 
 
+        
         self.transformer_encoder1 = MultiHeadAttention(1, 11**2, 121, 512) # n * linear_dim = h* w
         self.transformer_encoder2 = MultiHeadAttention(4, 22**2, 121, 320) 
         self.transformer_encoder3 = MultiHeadAttention(8, 44**2, 242, 128) 
         self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 968, 128) 
         self.dimension_extension = DimensionalExtention(64, 128)
+        
 
+        self.upsample_s1 = Upsample(512, False, dims=2)
+        self.upsample_s2 = Upsample(320, False, dims=2)
+        self.upsample_s3 = Upsample(128, False, dims=2)
+        self.upsample_s4 = Upsample(128, False, dims=2)
+
+        
 
 
     def convert_to_fp16(self):
