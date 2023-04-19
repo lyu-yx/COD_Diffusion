@@ -18,7 +18,7 @@ from guided_diffusion.script_util_transformer_LN_pgfr_out_extending_pos import (
     add_dict_to_argparser,
 )
 import torch as th
-from guided_diffusion.train_util import TrainLoop
+from guided_diffusion.train_util_extending import TrainLoop
 #from visdom import Visdom
 #viz = Visdom(port=8850)
 
