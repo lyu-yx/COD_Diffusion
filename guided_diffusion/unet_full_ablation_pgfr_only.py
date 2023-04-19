@@ -1166,7 +1166,7 @@ class IntegratedUNetModel(nn.Module):
         self.cat_dr1 = DimensionalReduction(in_channel=512*2, out_channel=512)   
         self.cat_dr2 = DimensionalReduction(in_channel=320*2, out_channel=320)
         self.cat_dr3 = DimensionalReduction(in_channel=128*2, out_channel=128)
-        self.cat_dr4 = DimensionalReduction(in_channel=64*2, out_channel=128)   
+        self.cat_dr4 = DimensionalReduction(in_channel=128*2, out_channel=128)   
 
         self.upsample_s1 = Upsample(512, False, dims=2)
         self.upsample_s2 = Upsample(320, False, dims=2)
