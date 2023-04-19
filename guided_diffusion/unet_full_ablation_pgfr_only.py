@@ -79,6 +79,7 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
 class Upsample(nn.Module):
     """
     An upsampling layer with an optional convolution.
+
     :param channels: channels in the inputs and outputs.
     :param use_conv: a bool determining if a convolution is applied.
     :param dims: determines if the signal is 1D, 2D, or 3D. If 3D, then
@@ -110,6 +111,7 @@ class Upsample(nn.Module):
 class Downsample(nn.Module):
     """
     A downsampling layer with an optional convolution.
+
     :param channels: channels in the inputs and outputs.
     :param use_conv: a bool determining if a convolution is applied.
     :param dims: determines if the signal is 1D, 2D, or 3D. If 3D, then
@@ -139,6 +141,7 @@ class Downsample(nn.Module):
 class ResBlock(TimestepBlock):
     """
     A residual block that can optionally change the number of channels.
+
     :param channels: the number of input channels.
     :param emb_channels: the number of timestep embedding channels.
     :param dropout: the rate of dropout.
@@ -219,6 +222,7 @@ class ResBlock(TimestepBlock):
     def forward(self, x, emb):
         """
         Apply the block to a Tensor, conditioned on a timestep embedding.
+
         :param x: an [N x C x ...] Tensor of features.
         :param emb: an [N x emb_channels] Tensor of timestep embeddings.
         :return: an [N x C x ...] Tensor of outputs.
@@ -253,6 +257,7 @@ class ResBlock(TimestepBlock):
 class AttentionBlock(nn.Module):
     """
     An attention block that allows spatial positions to attend to each other.
+
     Originally ported from here, but adapted to the N-d case.
     https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/models/unet.py#L66.
     """
@@ -330,6 +335,7 @@ class QKVAttentionLegacy(nn.Module):
     def forward(self, qkv):
         """
         Apply QKV attention.
+
         :param qkv: an [N x (H * 3 * C) x T] tensor of Qs, Ks, and Vs.
         :return: an [N x (H * C) x T] tensor after attention.
         """
@@ -362,6 +368,7 @@ class QKVAttention(nn.Module):
     def forward(self, qkv):
         """
         Apply QKV attention.
+
         :param qkv: an [N x (3 * H * C) x T] tensor of Qs, Ks, and Vs.
         :return: an [N x (H * C) x T] tensor after attention.
         """
@@ -417,18 +424,11 @@ class MultiHeadAttention(nn.Module):
 
         #Linear layers
 
-        self.w_qs   = nn.Linear(in_pixels + 1, n_head * linear_dim, bias=False) #Linear layer for queries
-        self.w_qs_pos   = nn.Parameter(th.randn(num_features, in_pixels + 1) / num_features ** 0.5) #Linear layer for queries
-        
-        self.w_ks   = nn.Linear(in_pixels + 1, n_head * linear_dim, bias=False) #Linear layer for keys
-        self.w_ks_pos   = nn.Parameter(th.randn(num_features, in_pixels + 1) / num_features ** 0.5) #Linear layer for queries
-        
-        self.w_vs   = nn.Linear(in_pixels + 1, n_head * linear_dim, bias=False) #Linear layer for values
-        self.w_vs_pos   = nn.Parameter(th.randn(num_features, in_pixels + 1) / num_features ** 0.5) #Linear layer for queries
-        
+        self.w_qs   = TimestepEmbedSequential(nn.Linear(in_pixels, n_head * linear_dim, bias=False)) #Linear layer for queries
+        self.w_ks   = TimestepEmbedSequential(nn.Linear(in_pixels, n_head * linear_dim, bias=False)) #Linear layer for keys
+        self.w_vs   = TimestepEmbedSequential(nn.Linear(in_pixels, n_head * linear_dim, bias=False)) #Linear layer for values
         self.fc     = nn.Linear(n_head * linear_dim, in_pixels, bias=False) #Final fully connected layer
-        
-        
+
         # Layer Norm
         #self.BN_linear = nn.BatchNorm2d(num_features=num_features)
         self.LN_linear = nn.LayerNorm([num_features, n_head, linear_dim])
@@ -440,7 +440,6 @@ class MultiHeadAttention(nn.Module):
         # self.OutBN = nn.BatchNorm2d(num_features=num_features)
         #self.BN = nn.BatchNorm2d(num_features=num_features)
         # self.BN_1D = nn.BatchNorm1d(num_features=num_features)
-        
     def forward(self, v, k, q, mask=None, emb=None):
         # Reshaping matrixes to 2D
         # q = b, c_q, h*w
@@ -455,35 +454,29 @@ class MultiHeadAttention(nn.Module):
         k = k.view(b, c, h*w)
         v = v.view(b, c, h*w)
 
-        q = th.cat([q.mean(dim=-1, keepdim=True), q], dim=-1)  # NC(HW+1)
-        q = q + self.w_qs_pos[None, :, :].to(q.dtype)  # NC(HW+1)
-
-        k = th.cat([k.mean(dim=-1, keepdim=True), k], dim=-1)  # NC(HW+1)
-        k = k + self.w_ks_pos[None, :, :].to(k.dtype)  # NC(HW+1)
-
-        v = th.cat([v.mean(dim=-1, keepdim=True), v], dim=-1)  # NC(HW+1)
-        v = v + self.w_vs_pos[None, :, :].to(v.dtype)  # NC(HW+1)
-
-        # Pass through the pre-attention projection: b x c x (n*linear dim)
-        # Separate different heads: b x c x n x linear dim
-        q = self.w_qs(q).view(b, c, n_head, linear_dim)
+       
+        # Pass through the pre-attention projection: b x lq x (n*dv)
+        # Separate different heads: b x lq x n x dv
+        q = self.w_qs(q, emb).view(b, c, n_head, linear_dim)
         q = self.LN_linear(q)
-        k = self.w_ks(k).view(b, c, n_head, linear_dim)
+        k = self.w_ks(k, emb).view(b, c, n_head, linear_dim)
         k = self.LN_linear(k)
-        v = self.w_vs(v).view(b, c, n_head, linear_dim)
+        v = self.w_vs(v, emb).view(b, c, n_head, linear_dim)
         v = self.LN_linear(v)
 
-        # Transpose for attention dot product: b x n x c x linear dim
+        # Transpose for attention dot product: b x n x lq x dv
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
 
         if mask is not None:
             mask = mask.unsqueeze(1)   # For head axis broadcasting.
+
         # Computing ScaledDotProduct attention for each head
         v_attn = self.attention(v, k, q, mask=mask)
 
-        # Transpose to move the head dimension back: b x c x n x linear dim
-        # Combine the last two dimensions to concatenate all the heads together: b x c x (n*linear dim)
+        # Transpose to move the head dimension back: b x lq x n x dv
+        # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
         v_attn = v_attn.transpose(1, 2).contiguous().view(b, c, n_head * linear_dim)
+
 
         output = v_attn
 
@@ -505,6 +498,7 @@ class MultiHeadAttention(nn.Module):
 class UNetModel(nn.Module):
     """
     The full UNet model with attention and timestep embedding.
+
     :param in_channels: channels in the input Tensor.
     :param model_channels: base channel count for the model.
     :param out_channels: channels in the output Tensor.
@@ -753,6 +747,7 @@ class UNetModel(nn.Module):
     def forward(self, x, timesteps, y=None):
         """
         Apply the model to an input batch.
+
         :param x: an [N x C x ...] Tensor of inputs.
         :param timesteps: a 1-D batch of timesteps.
         :param y: an [N] Tensor of labels, if class-conditional.
@@ -908,6 +903,7 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
 class SuperResModel(UNetModel):
     """
     A UNetModel that performs super-resolution.
+
     Expects an extra kwarg `low_res` to condition on a low-resolution image.
     """
 
@@ -924,6 +920,7 @@ class SuperResModel(UNetModel):
 class IntegratedUNetModel(nn.Module):
     """
     The half UNet model with attention and timestep embedding.
+
     For usage, see UNet.
     """
 
@@ -1149,11 +1146,11 @@ class IntegratedUNetModel(nn.Module):
         self.dr3 = DimensionalReduction(in_channel=320+256, out_channel=128)
         self.dr4 = DimensionalReduction(in_channel=128+256, out_channel=128) 
 
-        
-        self.transformer_encoder1 = MultiHeadAttention(1, 11**2, 121, 512) # n * linear_dim = h* w
-        self.transformer_encoder2 = MultiHeadAttention(4, 22**2, 121, 320) 
-        self.transformer_encoder3 = MultiHeadAttention(8, 44**2, 242, 128) 
-        self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 968, 128) 
+
+        self.transformer_encoder1 = MultiHeadAttention(11, 11**2, 11, 512) # n * linear_dim = h* w
+        self.transformer_encoder2 = MultiHeadAttention(11, 22**2, 44, 320) 
+        self.transformer_encoder3 = MultiHeadAttention(22, 44**2, 88, 128) 
+        self.transformer_encoder4 = MultiHeadAttention(44, 88**2, 176, 128) 
         # self.dimension_extension = DimensionalExtention(64, 128)
         
         # self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
@@ -1166,6 +1163,11 @@ class IntegratedUNetModel(nn.Module):
         self.pgfr3_up =  Upsample(128, False, dims=2)
         # self.dr1 = DimensionalReduction(in_channel=512, out_channel=512)
         
+        self.cat_dr1 = DimensionalReduction(in_channel=512*2, out_channel=512)   
+        self.cat_dr2 = DimensionalReduction(in_channel=320*2, out_channel=320)
+        self.cat_dr3 = DimensionalReduction(in_channel=128*2, out_channel=128)
+        self.cat_dr4 = DimensionalReduction(in_channel=64*2, out_channel=128)   
+
         self.upsample_s1 = Upsample(512, False, dims=2)
         self.upsample_s2 = Upsample(320, False, dims=2)
         self.upsample_s3 = Upsample(128, False, dims=2)
@@ -1196,6 +1198,7 @@ class IntegratedUNetModel(nn.Module):
     def forward(self, x, timesteps):
         """
         Apply the model to an input batch.
+
         :param x: an [N x C x ...] Tensor of inputs.
         :param timesteps: a 1-D batch of timesteps.
         :return: an [N x K] Tensor of outputs.
@@ -1227,32 +1230,26 @@ class IntegratedUNetModel(nn.Module):
         
 
         pgfr1_out, edge1 = self.pgfr1(fb4)
-        V1, K1, Q1 = h, h, pgfr1_out
-        h = self.transformer_encoder1(V1, K1, Q1, emb=emb)
+        h = self.cat_dr1(th.cat([pgfr1_out, h], dim=1))
         h = self.upsample_s1(h)
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
         pgfr1_out = self.pgfr1_up(pgfr1_out)
 
         pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
-        V2, K2, Q2 = h, h, pgfr2_out
-        h = self.transformer_encoder2(V2, K2, Q2, emb=emb)
+        h = self.cat_dr2(th.cat([pgfr2_out, h], dim=1))
         h = self.upsample_s2(h)
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
         pgfr2_out = self.pgfr2_up(pgfr2_out)
 
         pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
-        V3, K3, Q3 = h, h, pgfr3_out
-        h = self.transformer_encoder3(V3, K3, Q3, emb=emb)
+        h = self.cat_dr3(th.cat([pgfr3_out, h], dim=1))
         h = self.upsample_s3(h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
         pgfr3_out = self.pgfr3_up(pgfr3_out)
 
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
-        V4, K4, Q4 = h, h, pgfr4_out
-        h = self.transformer_encoder4(V4, K4, Q4, emb=emb)
-        # h = self.dimension_extension(h)
+        h = self.cat_dr4(th.cat([pgfr4_out, h], dim=1))
         h = self.upsample_s4(h)
-        
         
 
         h = th.cat([h, hs.pop()], dim=1)
@@ -1266,3 +1263,5 @@ class IntegratedUNetModel(nn.Module):
         out = self.out(h)
         
         return out, (self.upsample_32(edge1), self.upsample_16(edge2), self.upsample_8(edge3), self.upsample_4(edge4))
+
+

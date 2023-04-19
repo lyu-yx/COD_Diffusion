@@ -79,6 +79,7 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
 class Upsample(nn.Module):
     """
     An upsampling layer with an optional convolution.
+
     :param channels: channels in the inputs and outputs.
     :param use_conv: a bool determining if a convolution is applied.
     :param dims: determines if the signal is 1D, 2D, or 3D. If 3D, then
@@ -110,6 +111,7 @@ class Upsample(nn.Module):
 class Downsample(nn.Module):
     """
     A downsampling layer with an optional convolution.
+
     :param channels: channels in the inputs and outputs.
     :param use_conv: a bool determining if a convolution is applied.
     :param dims: determines if the signal is 1D, 2D, or 3D. If 3D, then
@@ -139,6 +141,7 @@ class Downsample(nn.Module):
 class ResBlock(TimestepBlock):
     """
     A residual block that can optionally change the number of channels.
+
     :param channels: the number of input channels.
     :param emb_channels: the number of timestep embedding channels.
     :param dropout: the rate of dropout.
@@ -219,6 +222,7 @@ class ResBlock(TimestepBlock):
     def forward(self, x, emb):
         """
         Apply the block to a Tensor, conditioned on a timestep embedding.
+
         :param x: an [N x C x ...] Tensor of features.
         :param emb: an [N x emb_channels] Tensor of timestep embeddings.
         :return: an [N x C x ...] Tensor of outputs.
@@ -253,6 +257,7 @@ class ResBlock(TimestepBlock):
 class AttentionBlock(nn.Module):
     """
     An attention block that allows spatial positions to attend to each other.
+
     Originally ported from here, but adapted to the N-d case.
     https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/models/unet.py#L66.
     """
@@ -330,6 +335,7 @@ class QKVAttentionLegacy(nn.Module):
     def forward(self, qkv):
         """
         Apply QKV attention.
+
         :param qkv: an [N x (H * 3 * C) x T] tensor of Qs, Ks, and Vs.
         :return: an [N x (H * C) x T] tensor after attention.
         """
@@ -362,6 +368,7 @@ class QKVAttention(nn.Module):
     def forward(self, qkv):
         """
         Apply QKV attention.
+
         :param qkv: an [N x (3 * H * C) x T] tensor of Qs, Ks, and Vs.
         :return: an [N x (H * C) x T] tensor after attention.
         """
@@ -505,6 +512,7 @@ class MultiHeadAttention(nn.Module):
 class UNetModel(nn.Module):
     """
     The full UNet model with attention and timestep embedding.
+
     :param in_channels: channels in the input Tensor.
     :param model_channels: base channel count for the model.
     :param out_channels: channels in the output Tensor.
@@ -753,6 +761,7 @@ class UNetModel(nn.Module):
     def forward(self, x, timesteps, y=None):
         """
         Apply the model to an input batch.
+
         :param x: an [N x C x ...] Tensor of inputs.
         :param timesteps: a 1-D batch of timesteps.
         :param y: an [N] Tensor of labels, if class-conditional.
@@ -908,6 +917,7 @@ class CrossDomainFeatureFusion(nn.Module):  # [128, 320, 512]
 class SuperResModel(UNetModel):
     """
     A UNetModel that performs super-resolution.
+
     Expects an extra kwarg `low_res` to condition on a low-resolution image.
     """
 
@@ -924,6 +934,7 @@ class SuperResModel(UNetModel):
 class IntegratedUNetModel(nn.Module):
     """
     The half UNet model with attention and timestep embedding.
+
     For usage, see UNet.
     """
 
@@ -1196,6 +1207,7 @@ class IntegratedUNetModel(nn.Module):
     def forward(self, x, timesteps):
         """
         Apply the model to an input batch.
+
         :param x: an [N x C x ...] Tensor of inputs.
         :param timesteps: a 1-D batch of timesteps.
         :return: an [N x K] Tensor of outputs.
@@ -1226,29 +1238,29 @@ class IntegratedUNetModel(nn.Module):
         h = self.middle_block(h, emb)
         
 
-        pgfr1_out, edge1 = self.pgfr1(fb4)
-        V1, K1, Q1 = h, h, pgfr1_out
+        # pgfr1_out, edge1 = self.pgfr1(fb4)
+        V1, K1, Q1 = h, h, fb4
         h = self.transformer_encoder1(V1, K1, Q1, emb=emb)
         h = self.upsample_s1(h)
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
-        pgfr1_out = self.pgfr1_up(pgfr1_out)
+        # pgfr1_out = self.pgfr1_up(pgfr1_out)
 
-        pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
-        V2, K2, Q2 = h, h, pgfr2_out
+        # pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
+        V2, K2, Q2 = h, h, fb3
         h = self.transformer_encoder2(V2, K2, Q2, emb=emb)
         h = self.upsample_s2(h)
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
-        pgfr2_out = self.pgfr2_up(pgfr2_out)
+        # pgfr2_out = self.pgfr2_up(pgfr2_out)
 
-        pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
-        V3, K3, Q3 = h, h, pgfr3_out
+        # pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
+        V3, K3, Q3 = h, h, fb2
         h = self.transformer_encoder3(V3, K3, Q3, emb=emb)
         h = self.upsample_s3(h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
-        pgfr3_out = self.pgfr3_up(pgfr3_out)
+        # pgfr3_out = self.pgfr3_up(pgfr3_out)
 
-        pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
-        V4, K4, Q4 = h, h, pgfr4_out
+        # pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
+        V4, K4, Q4 = h, h, fb1
         h = self.transformer_encoder4(V4, K4, Q4, emb=emb)
         # h = self.dimension_extension(h)
         h = self.upsample_s4(h)
@@ -1264,5 +1276,8 @@ class IntegratedUNetModel(nn.Module):
             h = module(h, emb)
         
         out = self.out(h)
-        
-        return out, (self.upsample_32(edge1), self.upsample_16(edge2), self.upsample_8(edge3), self.upsample_4(edge4))
+        b = out.size()[0]
+        h = out.size()[2]
+        w = out.size()[3]
+        return out, (th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"), th.zeros(b,1,h,w).to("cuda"))
+
