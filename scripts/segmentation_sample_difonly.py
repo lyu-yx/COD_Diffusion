@@ -99,8 +99,7 @@ def main():
         # end = th.cuda.Event(enable_timing=True)
         # start.record()
         sample_arrays = []
-        edge_arrays = []
-        threshold = 0.5
+        threshold = args.threshold
         foregroundValue = 1.0
         for i in range(args.num_ensemble):  # this is for the generation of an ensemble of n masks.
             model_kwargs = {}
@@ -121,33 +120,23 @@ def main():
             output[output > threshold] = 1
             output = sitk.Cast(sitk.GetImageFromArray(output), sitk.sitkUInt8)
             sample_arrays.append(output)
-
-            output_edge = F.interpolate(edge, size=img_size, mode='bilinear', align_corners=False)
-            output_edge = output_edge.detach().squeeze().cpu().numpy()
-            output_edge = (output_edge - output_edge.min()) / (output_edge.max() - output_edge.min() + 1e-8)
-            output_edge[output_edge <= threshold] = 0
-            output_edge[output_edge > threshold] = 1
-            output_edge = sitk.Cast(sitk.GetImageFromArray(output_edge), sitk.sitkUInt8)
-            edge_arrays.append(output_edge)
             # plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
         
         
         images = [array for array in sample_arrays]
         staple_result = sitk.STAPLE(images, foregroundValue)
-        staple_result = sitk.GetArrayFromImage(staple_result) 
-        result = (staple_result - staple_result.min()) / (staple_result.max() - staple_result.min() + 1e-8)
-        plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', result, cmap='gist_gray') # save the generated mask
-        
+        threshold_filter = sitk.BinaryThresholdImageFilter()
+        threshold_filter.SetLowerThreshold(0.75)
+        threshold_filter.SetUpperThreshold(1.0)
+        threshold_filter.SetInsideValue(1)
+        threshold_filter.SetOutsideValue(0)
+        binary_staple = threshold_filter.Execute(staple_result)
+        binary_staple = sitk.GetArrayFromImage(binary_staple) 
 
-        images = [edge for edge in edge_arrays]
-        edge_staple_result = sitk.STAPLE(images, foregroundValue)
-        edge_staple_result = sitk.GetArrayFromImage(edge_staple_result) 
-        result = (edge_staple_result - edge_staple_result.min()) / (edge_staple_result.max() - edge_staple_result.min() + 1e-8)
-        plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', result, cmap='gist_gray')
         
-        # end.record()
-        # th.cuda.synchronize()
-        # print('time for {} sample: {} second'.format(args.num_ensemble, start.elapsed_time(end)/1000))  #time measurement for the generation of 1 sample
+        
+        plt.imsave(args.save_pth + str(name).split('.')[0] + '.png', binary_staple, cmap='gist_gray') # save the generated mask
+        
 
 def create_argparser():
     defaults = dict(
@@ -164,7 +153,8 @@ def create_argparser():
         multi_gpu = None, # "0,1,2"
         model_path="./results/savedmodel075000.pt",
         num_ensemble=5,      #number of samples in the ensemble
-        save_pth="./results/val/"
+        save_pth="./results/val/",
+        threshold=0.5,
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
