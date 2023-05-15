@@ -1232,19 +1232,19 @@ class IntegratedUNetModel(nn.Module):
         h = self.middle_block(h, emb)
         
 
-        h = self.dr_cat_1(th.cat([h, fb4]))
+        h = self.dr_cat_1(th.cat([h, fb4], dim=1))
         h = self.upsample_s1(h)
         
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
-        h = self.dr_cat_2(th.cat([h, fb3]))
+        h = self.dr_cat_2(th.cat([h, fb3], dim=1))
         h = self.upsample_s2(h)
 
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
-        h = self.dr_cat_3(th.cat([h, fb2]))
+        h = self.dr_cat_3(th.cat([h, fb2], dim=1))
         h = self.upsample_s3(h)
         
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
-        h = self.dr_cat_4(th.cat([h, fb1]))
+        h = self.dr_cat_4(th.cat([h, fb1], dim=1))
         h = self.upsample_s3(h)
         
         h = th.cat([h, hs.pop()], dim=1)
