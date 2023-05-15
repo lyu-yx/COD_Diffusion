@@ -1159,7 +1159,7 @@ class IntegratedUNetModel(nn.Module):
         self.dr_cat_1 = DimensionalReduction(in_channel=512*2, out_channel=512) 
         self.dr_cat_2 = DimensionalReduction(in_channel=320*2, out_channel=320)    #  U-net + U-net(after DR)
         self.dr_cat_3 = DimensionalReduction(in_channel=128*2, out_channel=128)
-        self.dr_cat_4 = DimensionalReduction(in_channel=64*2, out_channel=128) 
+        self.dr_cat_4 = DimensionalReduction(in_channel=192, out_channel=128) 
 
 
         self.dr2 = DimensionalReduction(in_channel=512*2, out_channel=320)    #  U-net + U-net(after DR)
