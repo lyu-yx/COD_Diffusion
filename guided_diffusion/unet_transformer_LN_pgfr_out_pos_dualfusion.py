@@ -505,7 +505,7 @@ class MultiHeadAttention(nn.Module):
         output = output + att
         #output  = v_attn
         #Reshape output to original image format
-        output = output.view(b, c, h, w)
+        output = output.view(b, c * 2, h, w)
 
         #We can consider batch-normalization here,,,
         #Will complete it later
