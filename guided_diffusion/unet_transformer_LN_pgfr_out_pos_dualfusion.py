@@ -426,7 +426,7 @@ class MultiHeadAttention(nn.Module):
         self.w_vs   = nn.Linear(in_pixels + 1, n_head * linear_dim, bias=False) #Linear layer for values
         self.w_vs_pos   = nn.Parameter(th.randn(num_features, in_pixels + 1) / num_features ** 0.5) #Linear layer for queries
         
-        self.fc     = nn.Linear(n_head * linear_dim * 2, in_pixels, bias=False) #Final fully connected layer
+        self.fc     = nn.Linear(n_head * linear_dim * 2, in_pixels * 2, bias=False) #Final fully connected layer
         
         
         # Layer Norm
@@ -492,7 +492,7 @@ class MultiHeadAttention(nn.Module):
 
         # Multi-head attention 
         att = th.cat([n_attn, e_attn], dim=1)
-        att = att.view(b, c, n_head, linear_dim)
+        att = att.view(b, c, 2 * n_head, linear_dim)
         att = att.transpose(1, 2)
         att = self.mhsa(att, att, att, mask=mask)
         att = att.transpose(1, 2).contiguous().view(b, c, n_head * linear_dim * 2)
@@ -1166,7 +1166,11 @@ class IntegratedUNetModel(nn.Module):
         self.transformer_encoder2 = MultiHeadAttention(4, 22**2, 121, 320) 
         self.transformer_encoder3 = MultiHeadAttention(8, 44**2, 242, 128) 
         self.transformer_encoder4 = MultiHeadAttention(8, 88**2, 968, 128) 
-        # self.dimension_extension = DimensionalExtention(64, 128)
+
+        self.dr_tsfm_1 = DimensionalReduction(in_channel=512*2, out_channel=512)
+        self.dr_tsfm_2 = DimensionalReduction(in_channel=320*2, out_channel=320)
+        self.dr_tsfm_3 = DimensionalReduction(in_channel=128*2, out_channel=128)
+        self.dr_tsfm_4 = DimensionalReduction(in_channel=128*2, out_channel=128)
         
         # self.cdff1 = CrossDomainFeatureFusion(cat_channel=512*2, out_channel=512)    #  PGFR + U-net(after DR)
         # self.cdff2 = CrossDomainFeatureFusion(cat_channel=320*2, out_channel=320)
@@ -1241,6 +1245,7 @@ class IntegratedUNetModel(nn.Module):
         pgfr1_out, edge1 = self.pgfr1(fb4)
         V1, K1, Q1 = h, h, pgfr1_out
         h = self.transformer_encoder1(V1, K1, Q1, emb=emb)
+        h = self.dr_tsfm_1(h)
         h = self.upsample_s1(h)
         h = self.dr2(th.cat([h, hs.pop()], dim=1))
         pgfr1_out = self.pgfr1_up(pgfr1_out)
@@ -1248,6 +1253,7 @@ class IntegratedUNetModel(nn.Module):
         pgfr2_out, edge2 = self.pgfr2(th.cat([fb3, pgfr1_out], dim=1))
         V2, K2, Q2 = h, h, pgfr2_out
         h = self.transformer_encoder2(V2, K2, Q2, emb=emb)
+        h = self.dr_tsfm_2(h)
         h = self.upsample_s2(h)
         h = self.dr3(th.cat([h, hs.pop()], dim=1))
         pgfr2_out = self.pgfr2_up(pgfr2_out)
@@ -1255,6 +1261,7 @@ class IntegratedUNetModel(nn.Module):
         pgfr3_out, edge3 = self.pgfr3(th.cat([fb2, pgfr2_out], dim=1))
         V3, K3, Q3 = h, h, pgfr3_out
         h = self.transformer_encoder3(V3, K3, Q3, emb=emb)
+        h = self.dr_tsfm_3(h)
         h = self.upsample_s3(h)
         h = self.dr4(th.cat([h, hs.pop()], dim=1))
         pgfr3_out = self.pgfr3_up(pgfr3_out)
@@ -1262,6 +1269,7 @@ class IntegratedUNetModel(nn.Module):
         pgfr4_out, edge4 = self.pgfr4(th.cat([fb1, pgfr3_out], dim=1))
         V4, K4, Q4 = h, h, pgfr4_out
         h = self.transformer_encoder4(V4, K4, Q4, emb=emb)
+        h = self.dr_tsfm_4(h)
         # h = self.dimension_extension(h)
         h = self.upsample_s4(h)
         
