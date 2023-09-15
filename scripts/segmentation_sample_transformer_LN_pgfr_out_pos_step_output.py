@@ -115,6 +115,7 @@ def main():
             )
             output = F.interpolate(sample, size=img_size, mode='bilinear', align_corners=False)
             output = output.detach().squeeze().cpu().numpy()
+            print('output size', output.size)
             sample_arrays.append(output)
             plt.imsave(args.save_pth + str(name).split('.')[0] + '_' + str(i) + '.png', output, cmap='gist_gray') # save the generated mask
             
