@@ -139,9 +139,9 @@ def main():
         
 def create_argparser():
     defaults = dict(
-        data_dir="../BUDG/dataset/TestDataset/CAMO/Imgs/",
-        gt_dir="../BUDG/dataset/TestDataset/CAMO/GT/",
-        edge_dir="../BUDG/dataset/TestDataset/CAMO/Edge/",
+        data_dir="../BUDG/dataset/TestDataset/polyp_dataset/ColonDB/images/",
+        gt_dir="../BUDG/dataset/TestDataset/polyp_dataset/ColonDB/masks/",
+        edge_dir="../BUDG/dataset/TestDataset/polyp_dataset/ColonDB/edges/",
         size=352,
         num_channels=128,
         clip_denoised=True,
