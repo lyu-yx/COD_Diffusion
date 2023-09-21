@@ -95,8 +95,8 @@ def main():
 
 def create_argparser():
     defaults = dict(
-        train_root="../BUDG/dataset/polyb_dataset/TrainDataset/",
-        val_root="../BUDG/dataset/polyb_dataset/TestDataset/Kvasir/",
+        train_root="../BUDG/dataset/polyp_dataset/TrainDataset/",
+        val_root="../BUDG/dataset/polyp_dataset/TestDataset/Kvasir/",
         train_size=352,
         test_size=352,
         schedule_sampler="uniform",
@@ -125,5 +125,5 @@ def create_argparser():
 
 
 if __name__ == "__main__":
-    wandb.init(project="Diffusion", name="polyb downstream app")
+    wandb.init(project="Diffusion", name="polyp downstream app")
     main()
