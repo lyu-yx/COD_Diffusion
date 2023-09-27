@@ -6,3 +6,7 @@
 *.log
 /wandb
 /dataset
+results/pvt_v2_b2.pth
+results/progress.csv
+.gitignore
+results/log.txt

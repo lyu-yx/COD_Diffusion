@@ -1191,7 +1191,7 @@ class DPM_Solver:
                     intermediates.append(x)
         cal = None
         out = self.model(torch.cat((self.img,x), dim=1).to(dtype = torch.float), t)
-        return x, cal
+       
         if isinstance(out, tuple):
             x, cal = out
         if return_intermediate:

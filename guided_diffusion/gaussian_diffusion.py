@@ -546,6 +546,7 @@ class GaussianDiffusion:
             sample[:,-1,:,:] = norm(sample[:,-1,:,:])
             final["sample"] = sample
             final["cal"] = cal
+            print('cal size: ', cal.size())
 
             # cal_out = torch.clamp(final["cal"] + 0.25 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
         else:
@@ -566,7 +567,7 @@ class GaussianDiffusion:
             
             return final["sample"], x_noisy, img, final["edge"]
             
-        return final["sample"], x_noisy, img, []
+        return final["sample"], cal, img, final["cal"]
 
 
     def p_sample_loop_progressive(
